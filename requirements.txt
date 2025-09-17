@@ -1,4 +1,4 @@
-Flask
-python-dotenv
+flask
 line-bot-sdk
-openai
+python-dotenv
+gunicorn
