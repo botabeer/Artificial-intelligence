@@ -1,54 +1,32 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
-    Mention, Mentionee
-)
-import os
-import re
-import random
-from collections import defaultdict
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import json
+import games
 
 app = Flask(__name__)
 
-# بيانات البوت من .env
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+LINE_CHANNEL_ACCESS_TOKEN = "ضع_توكن_LINE_هنا"
+LINE_CHANNEL_SECRET = "ضع_سيكرت_LINE_هنا"
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# حالة البوت (تشغيل / تعطيل)
-bot_active = True
+# تحميل النقاط
+try:
+    with open("storage.json", "r", encoding="utf-8") as f:
+        scores = json.load(f)
+except:
+    scores = {}
 
-# عداد الروابط
-link_count = defaultdict(int)
+def save_scores():
+    with open("storage.json", "w", encoding="utf-8") as f:
+        json.dump(scores, f, ensure_ascii=False, indent=2)
 
-# نمط الروابط
-url_pattern = re.compile(r'https?://\\S+')
-
-# تحميل الأسئلة
-def load_questions():
-    try:
-        with open("questions.txt", "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        return ["ملف الأسئلة غير موجود"]
-
-questions = load_questions()
-
-# تحميل المساعدة
-def load_help():
-    try:
-        with open("help.txt", "r", encoding="utf-8") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return "لا يوجد ملف مساعدة"
-
-@app.route("/callback", methods=['POST'])
+@app.route("/callback", methods=["POST"])
 def callback():
-    signature = request.headers.get('X-Line-Signature', '')
+    signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
 
     try:
@@ -56,114 +34,87 @@ def callback():
     except InvalidSignatureError:
         abort(400)
 
-    return 'OK'
+    return "OK"
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    global bot_active, questions
-
     user_id = event.source.user_id
+    profile = line_bot_api.get_profile(user_id)
+    user_name = profile.display_name
     text = event.message.text.strip()
 
-    # أمر تشغيل
-    if text == "تشغيل":
-        bot_active = True
-        questions = load_questions()
-        start_msg = TextSendMessage(
-            text="تم تشغيل البوت بواسطة <MENTION>",
-            mention=Mention(
-                mentionees=[Mentionee(user_id=user_id, type="user")]
-            )
-        )
-        line_bot_api.reply_message(event.reply_token, start_msg)
-        return
+    # إنشاء رصيد لو ما كان موجود
+    if user_id not in scores:
+        scores[user_id] = {"name": user_name, "points": 0}
 
-    # أمر تعطيل
-    if text == "تعطيل":
-        bot_active = False
-        stop_msg = TextSendMessage(
-            text="تم إيقاف البوت مؤقتًا بواسطة <MENTION>",
-            mention=Mention(
-                mentionees=[Mentionee(user_id=user_id, type="user")]
-            )
-        )
-        line_bot_api.reply_message(event.reply_token, stop_msg)
-        return
+    reply = ""
 
-    # أمر الحالة
-    if text == "الحالة":
-        status_text = "البوت يعمل الآن" if bot_active else "البوت متوقف حاليًا"
-        status_msg = TextSendMessage(
-            text=f"{status_text} <MENTION>",
-            mention=Mention(
-                mentionees=[Mentionee(user_id=user_id, type="user")]
-            )
-        )
-        line_bot_api.reply_message(event.reply_token, status_msg)
-        return
+    if text in ["مساعدة", "الاوامر"]:
+        reply = """📌 أوامر الألعاب:
+- حجر / ورقة / مقص
+- أرقام عشوائية
+- نكتة
+- اقتباس
+- لغز
+- سؤال (Quiz)
+- توافق [اسم] + [اسم]
+- قلب [كلمة]
+- ملخبط [كلمة]
+- ترتيب → يطلع أفضل اللاعبين
+"""
 
-    # لو البوت متوقف → ما يرد
-    if not bot_active:
-        return
+    elif text in ["حجر", "ورقة", "مقص"]:
+        game_reply = games.rock_paper_scissors(text)
+        scores[user_id]["points"] += 10
+        reply = f"{game_reply}\nنقاطك الآن: {scores[user_id]['points']}"
 
-    # حماية الروابط
-    if url_pattern.search(text):
-        link_count[user_id] += 1
+    elif text == "أرقام عشوائية":
+        reply = games.random_number()
 
-        if link_count[user_id] == 2:
-            try:
-                line_bot_api.delete_message(event.message.id)
-            except Exception as e:
-                print("خطأ عند حذف الرسالة:", e)
+    elif text == "نكتة":
+        scores[user_id]["points"] += 5
+        reply = f"{games.tell_joke()}\nنقاطك الآن: {scores[user_id]['points']}"
 
-            warning_text = TextSendMessage(
-                text="الرجاء عدم تكرار الروابط <MENTION>",
-                mention=Mention(
-                    mentionees=[Mentionee(user_id=user_id, type="user")]
-                )
-            )
-            line_bot_api.reply_message(event.reply_token, warning_text)
+    elif text == "اقتباس":
+        reply = games.tell_quote()
 
-        elif link_count[user_id] >= 3 and event.source.type == "group":
-            try:
-                line_bot_api.delete_message(event.message.id)
-            except Exception as e:
-                print("خطأ عند حذف الرسالة:", e)
+    elif text == "لغز":
+        r = games.ask_riddle()
+        scores[user_id]["points"] += 10
+        reply = f"❓ {r['q']} (الجواب: {r['a']})\nنقاطك الآن: {scores[user_id]['points']}"
 
-            try:
-                line_bot_api.kickout_from_group(event.source.group_id, user_id)
-                alert_text = TextSendMessage(
-                    text="تم طرد <MENTION> بسبب تكرار الروابط",
-                    mention=Mention(
-                        mentionees=[Mentionee(user_id=user_id, type="user")]
-                    )
-                )
-                line_bot_api.push_message(event.source.group_id, alert_text)
+    elif text == "سؤال":
+        q = games.ask_quiz()
+        scores[user_id]["points"] += 10
+        reply = f"🧠 {q['q']} (الجواب: {q['a']})\nنقاطك الآن: {scores[user_id]['points']}"
 
-            except Exception as e:
-                print("خطأ عند الطرد:", e)
-        return
+    elif text.startswith("توافق"):
+        try:
+            parts = text.replace("توافق", "").split("+")
+            name1, name2 = parts[0].strip(), parts[1].strip()
+            reply = games.love_match(name1, name2)
+        except:
+            reply = "اكتب بالشكل: توافق علي + سارة"
 
-    # أمر مساعدة
-    if text == "مساعدة":
-        help_text = load_help()
-        reply_msg = f"قائمة الأوامر:\n{help_text}"
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_msg)
-        )
-        return
+    elif text.startswith("قلب"):
+        word = text.replace("قلب", "").strip()
+        reply = games.reverse_word(word)
 
-    # أوامر الأسئلة
-    keywords = ["سوال", "سؤال", "اسئله", "اسئلة", "أساله", "أسألة"]
-    if any(word in text for word in keywords):
-        question = random.choice(questions)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=question)
-        )
-        return
+    elif text.startswith("ملخبط"):
+        word = text.replace("ملخبط", "").strip()
+        reply = games.scramble_word(word)
+
+    elif text == "ترتيب":
+        ranking = sorted(scores.items(), key=lambda x: x[1]["points"], reverse=True)
+        reply = "🏆 الترتيب:\n"
+        for i, (uid, data) in enumerate(ranking[:5], 1):
+            reply += f"{i}. {data['name']} → {data['points']} نقطة\n"
+
+    else:
+        reply = "❓ اكتب 'مساعدة' لعرض أوامر الألعاب."
+
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    save_scores()
 
 if __name__ == "__main__":
-    # خادوم افتراضي للتشغيل المحلي
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(port=5000)
