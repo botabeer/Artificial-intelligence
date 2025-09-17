@@ -1,111 +1,169 @@
-import os
 from flask import Flask, request, abort
-from dotenv import load_dotenv
-
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, ImageMessage
-
-import openai
-import base64
-
-# تحميل متغيرات البيئة
-load_dotenv()
-
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_CHANNEL_SECRET:
-    raise Exception("ضع بيانات LINE في ملف .env")
-if not OPENAI_API_KEY:
-    raise Exception("ضع OPENAI_API_KEY في ملف .env")
-
-line_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
-openai.api_key = OPENAI_API_KEY
+from linebot.models import (
+    MessageEvent, TextMessage, TextSendMessage,
+    Mention, Mentionee
+)
+import os
+import re
+import random
+from collections import defaultdict
 
 app = Flask(__name__)
 
-# ذاكرة المحادثات (بسيطة داخل الذاكرة)
-user_sessions = {}
+# بيانات البوت من .env
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 
-def ask_ai(user_id: str, user_text: str) -> str:
-    if user_id not in user_sessions:
-        user_sessions[user_id] = [
-            {"role": "system", "content": "أنت مساعد ذكي يرد بأسلوب مختصر وواضح."}
-        ]
-    
-    user_sessions[user_id].append({"role": "user", "content": user_text})
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
+# حالة البوت (تشغيل / تعطيل)
+bot_active = True
+
+# عداد الروابط
+link_count = defaultdict(int)
+
+# نمط الروابط
+url_pattern = re.compile(r'https?://\\S+')
+
+# تحميل الأسئلة
+def load_questions():
     try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=user_sessions[user_id],
-            temperature=0.7,
-            max_tokens=500
-        )
-        reply = completion["choices"][0]["message"]["content"].strip()
-        
-        user_sessions[user_id].append({"role": "assistant", "content": reply})
+        with open("questions.txt", "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return ["ملف الأسئلة غير موجود"]
 
-        if len(user_sessions[user_id]) > 15:
-            user_sessions[user_id] = user_sessions[user_id][-10:]
+questions = load_questions()
 
-        return reply
+# تحميل المساعدة
+def load_help():
+    try:
+        with open("help.txt", "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "لا يوجد ملف مساعدة"
 
-    except Exception as e:
-        return f"خطأ في الاتصال بالذكاء الاصطناعي: {str(e)}"
-
-@app.route("/callback", methods=["POST"])
+@app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers.get("X-Line-Signature", "")
+    signature = request.headers.get('X-Line-Signature', '')
     body = request.get_data(as_text=True)
+
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
-    return "OK"
+
+    return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_text = event.message.text.strip()
+    global bot_active, questions
+
     user_id = event.source.user_id
-    reply = ask_ai(user_id, user_text)
-    line_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    text = event.message.text.strip()
 
-@handler.add(MessageEvent, message=ImageMessage)
-def handle_image(event):
-    # تحميل الصورة من LINE
-    message_content = line_api.get_message_content(event.message.id)
-    img_path = f"/tmp/{event.message.id}.jpg"
-    with open(img_path, "wb") as f:
-        for chunk in message_content.iter_content():
-            f.write(chunk)
-
-    # قراءة الصورة وتحويلها إلى Base64
-    with open(img_path, "rb") as img_file:
-        img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
-
-    # إرسال الصورة إلى OpenAI Vision
-    try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "أنت مساعد ذكي تحل مسائل من الصور."},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "حل المسألة الموجودة في هذه الصورة:"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}}
-                ]}
-            ],
-            max_tokens=500
+    # أمر تشغيل
+    if text == "تشغيل":
+        bot_active = True
+        questions = load_questions()
+        start_msg = TextSendMessage(
+            text="تم تشغيل البوت بواسطة <MENTION>",
+            mention=Mention(
+                mentionees=[Mentionee(user_id=user_id, type="user")]
+            )
         )
-        reply = completion["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        reply = f"تعذر قراءة الصورة: {str(e)}"
+        line_bot_api.reply_message(event.reply_token, start_msg)
+        return
 
-    line_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    # أمر تعطيل
+    if text == "تعطيل":
+        bot_active = False
+        stop_msg = TextSendMessage(
+            text="تم إيقاف البوت مؤقتًا بواسطة <MENTION>",
+            mention=Mention(
+                mentionees=[Mentionee(user_id=user_id, type="user")]
+            )
+        )
+        line_bot_api.reply_message(event.reply_token, stop_msg)
+        return
+
+    # أمر الحالة
+    if text == "الحالة":
+        status_text = "البوت يعمل الآن" if bot_active else "البوت متوقف حاليًا"
+        status_msg = TextSendMessage(
+            text=f"{status_text} <MENTION>",
+            mention=Mention(
+                mentionees=[Mentionee(user_id=user_id, type="user")]
+            )
+        )
+        line_bot_api.reply_message(event.reply_token, status_msg)
+        return
+
+    # لو البوت متوقف → ما يرد
+    if not bot_active:
+        return
+
+    # حماية الروابط
+    if url_pattern.search(text):
+        link_count[user_id] += 1
+
+        if link_count[user_id] == 2:
+            try:
+                line_bot_api.delete_message(event.message.id)
+            except Exception as e:
+                print("خطأ عند حذف الرسالة:", e)
+
+            warning_text = TextSendMessage(
+                text="الرجاء عدم تكرار الروابط <MENTION>",
+                mention=Mention(
+                    mentionees=[Mentionee(user_id=user_id, type="user")]
+                )
+            )
+            line_bot_api.reply_message(event.reply_token, warning_text)
+
+        elif link_count[user_id] >= 3 and event.source.type == "group":
+            try:
+                line_bot_api.delete_message(event.message.id)
+            except Exception as e:
+                print("خطأ عند حذف الرسالة:", e)
+
+            try:
+                line_bot_api.kickout_from_group(event.source.group_id, user_id)
+                alert_text = TextSendMessage(
+                    text="تم طرد <MENTION> بسبب تكرار الروابط",
+                    mention=Mention(
+                        mentionees=[Mentionee(user_id=user_id, type="user")]
+                    )
+                )
+                line_bot_api.push_message(event.source.group_id, alert_text)
+
+            except Exception as e:
+                print("خطأ عند الطرد:", e)
+        return
+
+    # أمر مساعدة
+    if text == "مساعدة":
+        help_text = load_help()
+        reply_msg = f"قائمة الأوامر:\n{help_text}"
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=reply_msg)
+        )
+        return
+
+    # أوامر الأسئلة
+    keywords = ["سوال", "سؤال", "اسئله", "اسئلة", "أساله", "أسألة"]
+    if any(word in text for word in keywords):
+        question = random.choice(questions)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=question)
+        )
+        return
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # خادوم افتراضي للتشغيل المحلي
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
