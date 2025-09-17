@@ -1,0 +1,4 @@
+Flask
+python-dotenv
+line-bot-sdk
+openai
