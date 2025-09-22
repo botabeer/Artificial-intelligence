@@ -9,15 +9,13 @@ from questions import questions  # استيراد قائمة الأسئلة
 
 app = Flask(__name__)
 
-# بيانات التوكن والسر
+# بيانات التوكن والسر والأدمن الأساسي
 LINE_CHANNEL_ACCESS_TOKEN = "xQdp0VVO1uYJDezlc90IVw2y23hflrhxz0fmh/tH7O20xBSZGtfDdhnZqgy7re4KwNTvhm5JqNnzQ72IWHpMQ5K9SFJEeuk9eupUxNcsCAaec/6DkJtnv/pC7SSsPbdqFRRlIbQCK6QQHuVmizlpDQdB04t89/1O/w1cDnyilFU="
 LINE_CHANNEL_SECRET = "9954eda2fe985044bf79b5aedb861ffe"
+MAIN_ADMIN = "Ub0345b01633bbe470bb6ca45ed48a913"
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-# الأدمن الأساسي
-MAIN_ADMIN = "Ub0345b01633bbe470bb6ca45ed48a913"
 
 # ملف تخزين الأدمن
 ADMINS_FILE = "admins.txt"
@@ -62,7 +60,7 @@ def get_random_questions(num=10):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ البوت شغال تمام"
+    return "البوت شغال تمام"
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -82,26 +80,23 @@ def handle_message(event):
 
     # أوامر الأدمن
     if user_id in ADMIN_USER_IDS:
-        # إعادة تعيين الأسئلة
         if text == "إعادة":
             used_questions = []
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ تم إعادة تعيين الأسئلة"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم إعادة تعيين الأسئلة"))
             return
 
-        # تصفير الروابط
         elif text == "تصفير روابط":
             links_count = {}
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ تم تصفير عداد الروابط"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم تصفير عداد الروابط"))
             return
 
-        # برودكاست
         elif text.startswith("برودكاست:"):
             message = text.replace("برودكاست:", "").strip()
             if message:
                 line_bot_api.broadcast(TextSendMessage(text=message))
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="📢 تم إرسال البرودكاست للجميع"))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم إرسال البرودكاست للجميع"))
             else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ استخدم الصيغة: برودكاست: [النص]"))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="استخدم الصيغة: برودكاست: [النص]"))
             return
 
         # إضافة أدمن بالمنشن المباشر
@@ -111,58 +106,55 @@ def handle_message(event):
                 if new_admin not in ADMIN_USER_IDS:
                     ADMIN_USER_IDS.append(new_admin)
                     save_admins(ADMIN_USER_IDS)
-                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ تم إضافة {new_admin} كأدمن"))
-                    notify_main_admin(f"📢 تنبيه: تم إعطاء {new_admin} صلاحيات الأدمن ✅")
+                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"تم إضافة {new_admin} كأدمن"))
+                    notify_main_admin(f"تم إعطاء {new_admin} صلاحيات الأدمن")
             return
 
-        # إضافة أدمن بالـ ID
         elif text.startswith("اعطاء ادمن:"):
             new_admin = text.replace("اعطاء ادمن:", "").strip()
             if new_admin and new_admin not in ADMIN_USER_IDS:
                 ADMIN_USER_IDS.append(new_admin)
                 save_admins(ADMIN_USER_IDS)
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ تم إضافة {new_admin} كأدمن"))
-                notify_main_admin(f"📢 تنبيه: تم إعطاء {new_admin} صلاحيات الأدمن ✅")
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"تم إضافة {new_admin} كأدمن"))
+                notify_main_admin(f"تم إعطاء {new_admin} صلاحيات الأدمن")
             else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ هذا المستخدم موجود مسبقاً أو غير صالح"))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="هذا المستخدم موجود مسبقاً أو غير صالح"))
             return
 
-        # حذف أدمن
         elif text.startswith("حذف ادمن:"):
             remove_admin = text.replace("حذف ادمن:", "").strip()
             if remove_admin in ADMIN_USER_IDS and remove_admin != user_id:
                 ADMIN_USER_IDS.remove(remove_admin)
                 save_admins(ADMIN_USER_IDS)
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"❌ تم إزالة {remove_admin} من الأدمن"))
-                notify_main_admin(f"📢 تنبيه: تم إزالة {remove_admin} من الأدمن ❌")
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"تم إزالة {remove_admin} من الأدمن"))
+                notify_main_admin(f"تم إزالة {remove_admin} من الأدمن")
             else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ لا يمكن الحذف (غير موجود أو تحاول حذف نفسك)"))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="لا يمكن الحذف (غير موجود أو تحاول حذف نفسك)"))
             return
 
-        # عرض الأدمن
         elif text == "عرض الادمن":
-            reply_text = "📋 قائمة الأدمن:\n" + "\n".join(ADMIN_USER_IDS)
+            reply_text = "قائمة الأدمن:\n" + "\n".join(ADMIN_USER_IDS)
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
             return
 
     # أوامر عامة
     if text == "تشغيل":
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم تشغيل البوت ✅"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم تشغيل البوت"))
 
     elif text in ["مساعدة", "مساعده"]:
         help_text = (
-            "أوامر البوت:\n\n"
+            "أوامر البوت:\n"
             "تشغيل ← لتشغيل البوت\n"
             "سؤال ← يعطيك 10 أسئلة عشوائية بدون تكرار\n"
             "الروابط المكررة غير مسموحة\n\n"
-            "📌 أوامر الأدمن:\n"
+            "أوامر الأدمن:\n"
             "إعادة ← إعادة تعيين الأسئلة\n"
             "تصفير روابط ← تصفير عداد الروابط\n"
             "برودكاست: [النص] ← إرسال رسالة جماعية\n"
             "اعطاء ادمن: [UserID] ← إضافة أدمن\n"
             "حذف ادمن: [UserID] ← حذف أدمن\n"
             "عرض الادمن ← قائمة الأدمن الحالية\n"
-            "🔹 يمكن أيضاً إضافة أدمن بالمنشن المباشر في الرسالة"
+            "يمكن أيضاً إضافة أدمن بالمنشن المباشر في الرسالة"
         )
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_text))
 
@@ -178,7 +170,7 @@ def handle_message(event):
         else:
             links_count[user_id] += 1
             if links_count[user_id] >= 2:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ الرجاء عدم تكرار الروابط"))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="الرجاء عدم تكرار الروابط"))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
