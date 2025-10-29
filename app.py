@@ -29,8 +29,7 @@ riddles_data = [
 emoji_proverbs = [
     {"emoji": "🐦🤚", "answer": "عصفور في اليد"}, {"emoji": "🌊🏃", "answer": "السباحة مع التيار"},
     {"emoji": "🕐⏰💰", "answer": "الوقت من ذهب"}, {"emoji": "🌳🍎", "answer": "الشجرة تعرف من ثمارها"},
-    {"emoji": "🔥💨", "answer": "لا دخان بلا نار"}, {"emoji": "🗣️💎", "answer": "الكلام من فضة"},
-    {"emoji": "🏃💨⏰", "answer": "اللي ما يطول العنب"}, {"emoji": "🐱🎒", "answer": "القط في الشوال"}
+    {"emoji": "🔥💨", "answer": "لا دخان بلا نار"}, {"emoji": "🗣️💎", "answer": "الكلام من فضة"}
 ]
 
 trivia_questions = [
@@ -38,7 +37,7 @@ trivia_questions = [
     {"q": "من هو مؤلف رواية البؤساء؟", "options": ["فيكتور هوجو", "تولستوي", "همنغواي", "شكسبير"], "correct": 1},
     {"q": "كم عدد الكواكب في المجموعة الشمسية؟", "options": ["7", "8", "9", "10"], "correct": 2},
     {"q": "ما أطول نهر في العالم؟", "options": ["النيل", "الأمازون", "اليانغتسي", "المسيسيبي"], "correct": 1},
-    {"q": "ما هي أكبر قارة في العالم؟", "options": ["أفريقيا", "آسيا", "أوروبا", "أمريكا"], "correct": 2}
+    {"q": "في أي سنة تأسست المملكة العربية السعودية؟", "options": ["1932", "1925", "1940", "1950"], "correct": 1}
 ]
 
 arabic_songs = [
@@ -48,6 +47,43 @@ arabic_songs = [
 ]
 
 scrambled_words = ["برمجة", "كمبيوتر", "تطوير", "ذكاء", "تقنية", "معلومات", "هاتف", "شاشة", "لوحة", "فأرة"]
+
+personality_questions = [
+    {"q": "ما هو لونك المفضل؟", "options": ["أزرق", "أحمر", "أخضر", "أصفر"], "analysis": {
+        "أزرق": "أنت شخص هادئ ومتزن، تحب السلام والاستقرار 🌊",
+        "أحمر": "أنت شخص نشيط وحماسي، تحب المغامرات 🔥",
+        "أخضر": "أنت شخص متفائل ومحب للطبيعة، صبور ومتوازن 🌿",
+        "أصفر": "أنت شخص مبدع ومبتهج، تحب نشر السعادة ☀️"
+    }},
+    {"q": "ما هو فصلك المفضل؟", "options": ["الصيف", "الشتاء", "الخريف", "الربيع"], "analysis": {
+        "الصيف": "أنت شخص اجتماعي ومحب للحياة والنشاطات 🏖️",
+        "الشتاء": "أنت شخص هادئ ومتأمل، تحب الدفء والراحة ❄️",
+        "الخريف": "أنت شخص رومانسي وحالم، تقدر التغيير 🍂",
+        "الربيع": "أنت شخص متفائل ومتجدد، تحب البدايات الجديدة 🌸"
+    }},
+    {"q": "أي حيوان تفضل؟", "options": ["قط", "كلب", "طائر", "سمكة"], "analysis": {
+        "قط": "أنت شخص مستقل وذكي، تحب الهدوء والخصوصية 🐱",
+        "كلب": "أنت شخص وفي ومخلص، تحب الصداقات القوية 🐕",
+        "طائر": "أنت شخص حر ومحب للحرية، تحلم بالطيران عالياً 🦅",
+        "سمكة": "أنت شخص هادئ ومسالم، تحب التأمل والسكينة 🐠"
+    }},
+    {"q": "ما هو طعامك المفضل؟", "options": ["حلويات", "مشويات", "سلطات", "مقليات"], "analysis": {
+        "حلويات": "أنت شخص محب للحياة وحلو المعشر، تنشر البهجة 🍰",
+        "مشويات": "أنت شخص تقليدي وأصيل، تقدر الأشياء البسيطة 🍖",
+        "سلطات": "أنت شخص صحي ومنظم، تهتم بالتفاصيل 🥗",
+        "مقليات": "أنت شخص مغامر وجريء، تحب التجارب الجديدة 🍟"
+    }}
+]
+
+personal_questions = [
+    {"q": "ما هو أكبر إنجاز حققته في حياتك؟", "type": "open"},
+    {"q": "لو كان لديك قوة خارقة، ماذا تختار؟", "options": ["الطيران", "القراءة في العقول", "التخفي", "القوة الخارقة"], "points": 5},
+    {"q": "ما هو حلمك الذي تسعى لتحقيقه؟", "type": "open"},
+    {"q": "أين تحب أن تقضي إجازتك؟", "options": ["الشاطئ", "الجبال", "المدينة", "الريف"], "points": 5},
+    {"q": "ما هي هوايتك المفضلة؟", "options": ["القراءة", "الرياضة", "الطبخ", "الرسم"], "points": 5},
+    {"q": "كيف تتعامل مع المشاكل؟", "options": ["أواجهها مباشرة", "أفكر ثم أتصرف", "أطلب المساعدة", "أتجاهلها"], "points": 5},
+    {"q": "ما هو أهم شيء في الحياة بالنسبة لك؟", "options": ["العائلة", "النجاح", "الصحة", "السعادة"], "points": 5}
+]
 
 def similarity_ratio(a, b): return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 def is_answer_correct(user_answer, correct_answer, threshold=0.75): return similarity_ratio(user_answer, correct_answer) >= threshold
@@ -89,50 +125,33 @@ def handle_message(event):
     session_id = get_session_id(event)
     
     if text in ["مساعدة", "مساعده"]: return send_help_menu(event.reply_token)
-    
-    # معالجة الإجابات المرقمة
-    if session_id in game_sessions and text.isdigit(): 
-        return handle_numbered_answer(event.reply_token, int(text), session_id, user_id)
-    
-    # معالجة أمر "جاوب" لإظهار الإجابة
-    if text == "جاوب" and session_id in game_sessions:
-        return show_answer(event.reply_token, session_id)
+    if session_id in game_sessions and text.isdigit(): return handle_numbered_answer(event.reply_token, int(text), session_id, user_id)
+    if text == "جاوب" and session_id in game_sessions: return show_answer(event.reply_token, session_id)
     
     commands = {
         "لغز": lambda: start_riddle_game(event.reply_token, session_id),
         "تلميح": lambda: send_hint(event.reply_token, session_id),
         "خمن المثل": lambda: start_proverb_game(event.reply_token, session_id),
         "ترتيب الحروف": lambda: start_letter_sort_game(event.reply_token, session_id),
-        "لعبة الحروف": lambda: start_letter_elimination_game(event.reply_token, session_id),
-        "سباق": lambda: start_speed_race(event.reply_token, session_id),
         "سؤال عام": lambda: start_trivia_game(event.reply_token, session_id),
         "خمن المغني": lambda: start_singer_game(event.reply_token, session_id),
         "كلمة سريعة": lambda: start_quick_word_game(event.reply_token, session_id),
+        "تحليل الشخصية": lambda: start_personality_test(event.reply_token, session_id),
+        "أسئلة شخصية": lambda: start_personal_questions(event.reply_token, session_id),
         "نقاطي": lambda: show_player_score(event.reply_token, user_id),
         "المتصدرين": lambda: show_leaderboard(event.reply_token)
     }
     
     if text in commands: return commands[text]()
-    
-    # معالجة الأوامر مع معاملات
-    if text.startswith("توافق:"):
-        parts = text.split(":", 1)[1].strip().split("+")
-        if len(parts) == 2: calculate_compatibility(event.reply_token, parts[0].strip(), parts[1].strip(), user_id)
-        else: line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ صيغة خاطئة!\nمثال: توافق: أحمد + سارة"))
-    elif text.startswith("تحليل:"):
-        analyze_personality(event.reply_token, text.split(":", 1)[1].strip(), user_id)
-    elif text.startswith("حرفي:"): 
-        submit_letter(event.reply_token, text, session_id, user_id)
-    elif session_id in game_sessions: 
-        handle_text_answer(event.reply_token, text, session_id, user_id)
+    if session_id in game_sessions: handle_text_answer(event.reply_token, text, session_id, user_id)
 
 def send_help_menu(reply_token):
     games = [
-        ("🧩 ألعاب الذكاء", "#FF6B9D", ["لغز - ألغاز ذكية", "تلميح - احصل على مساعدة", "خمن المثل - من الإيموجي", "ترتيب الحروف - رتب الكلمة"]),
-        ("⚡ ألعاب السرعة", "#4ECDC4", ["سباق - أسرع واحد", "كلمة سريعة - سرعة الكتابة", "لعبة الحروف - تحدي جماعي"]),
-        ("🎵 ألعاب ثقافية", "#9B59B6", ["سؤال عام - ثقافة عامة", "خمن المغني - أغاني عربية", "توافق: [اسم]+[اسم] - التوافق"]),
-        ("✨ مميزات AI", "#F39C12", ["تحليل: [معلومة] - AI شخصي", "نقاطي - نقاطك", "المتصدرين - أفضل اللاعبين"]),
-        ("ℹ️ نصائح", "#34495E", ["• اكتب 'جاوب' لإظهار الحل", "• استخدم الأرقام للإجابة", "• شارك مع أصدقائك!"])
+        ("🧩 ألعاب الذكاء", "#FF6B9D", ["لغز - ألغاز ذكية", "تلميح - مساعدة", "خمن المثل - إيموجي", "ترتيب الحروف - رتب"]),
+        ("🎵 ألعاب ثقافية", "#9B59B6", ["سؤال عام - ثقافة", "خمن المغني - أغاني", "كلمة سريعة - سرعة"]),
+        ("✨ اكتشف نفسك", "#F39C12", ["تحليل الشخصية - اعرف نفسك", "أسئلة شخصية - عن حياتك"]),
+        ("🏆 النقاط", "#FFD700", ["نقاطي - نقاطك", "المتصدرين - الأفضل"]),
+        ("ℹ️ نصائح", "#34495E", ["• 'جاوب' للحل", "• الأرقام للإجابة", "• شارك الألعاب!"])
     ]
     
     bubbles = []
@@ -147,24 +166,17 @@ def send_help_menu(reply_token):
     line_bot_api.reply_message(reply_token, flex)
 
 def show_answer(reply_token, session_id):
-    """إظهار الإجابة الصحيحة عند كتابة 'جاوب'"""
     if session_id not in game_sessions: return
     game = game_sessions[session_id]
     game_type = game["type"]
     
     answer_text = ""
-    if game_type == "riddle":
-        answer_text = f"💡 الإجابة: {game['riddle']['answer']}"
-    elif game_type == "proverb":
-        answer_text = f"💡 المثل: {game['answer']}"
-    elif game_type == "letter_sort":
-        answer_text = f"💡 الكلمة: {game['answer']}"
-    elif game_type == "trivia":
-        answer_text = f"💡 الإجابة: {game['question']['options'][game['correct']-1]}"
-    elif game_type == "singer":
-        answer_text = f"💡 المغني: {game['artist']}"
-    else:
-        return
+    if game_type == "riddle": answer_text = f"💡 الإجابة: {game['riddle']['answer']}"
+    elif game_type == "proverb": answer_text = f"💡 المثل: {game['answer']}"
+    elif game_type == "letter_sort": answer_text = f"💡 الكلمة: {game['answer']}"
+    elif game_type == "trivia": answer_text = f"💡 الإجابة: {game['question']['options'][game['correct']-1]}"
+    elif game_type == "singer": answer_text = f"💡 المغني: {game['artist']}"
+    else: return
     
     del game_sessions[session_id]
     line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ تم الاستسلام!\n\n{answer_text}"))
@@ -172,7 +184,12 @@ def show_answer(reply_token, session_id):
 def handle_numbered_answer(reply_token, number, session_id, user_id):
     if session_id not in game_sessions: return
     game_type = game_sessions[session_id]["type"]
-    handlers = {"trivia": check_trivia_answer_by_number, "singer": check_singer_answer_by_number}
+    handlers = {
+        "trivia": check_trivia_answer_by_number, 
+        "singer": check_singer_answer_by_number,
+        "personality": check_personality_answer,
+        "personal": check_personal_answer
+    }
     if game_type in handlers: handlers[game_type](reply_token, number, session_id, user_id)
 
 def handle_text_answer(reply_token, text, session_id, user_id):
@@ -181,9 +198,7 @@ def handle_text_answer(reply_token, text, session_id, user_id):
         "riddle": check_riddle_answer, 
         "proverb": check_proverb_answer,
         "letter_sort": check_letter_sort_answer,
-        "speed_race": check_speed_response, 
-        "quick_word": check_quick_word, 
-        "letter_elimination": guess_word_from_letters
+        "quick_word": check_quick_word
     }
     if game_type in handlers: handlers[game_type](reply_token, text, session_id, user_id)
 
@@ -202,24 +217,21 @@ def create_game_bubble(title, color, question, options=None, footer_text=""):
         "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": title, "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": color, "paddingAll": "20px"},
         "body": {"type": "box", "layout": "vertical", "contents": contents}
     }
-    
-    if footer_text:
-        bubble["footer"] = {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": footer_text, "size": "xs", "color": "#aaaaaa", "align": "center"}]}
-    
+    if footer_text: bubble["footer"] = {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": footer_text, "size": "xs", "color": "#aaaaaa", "align": "center"}]}
     return FlexSendMessage(alt_text=title, contents=bubble)
 
-# ===== لعبة اللغز =====
+# ===== الألعاب الموجودة =====
 def start_riddle_game(reply_token, session_id):
     riddle = random.choice(riddles_data)
     game_sessions[session_id] = {"type": "riddle", "riddle": riddle, "hint_used": False}
-    flex = create_game_bubble("🧩 لغز", "#FF6B9D", f"{riddle['riddle']}\n\n💡 تلميح؟ اكتب: تلميح\n❌ استسلام؟ اكتب: جاوب\n✍️ اكتب إجابتك مباشرة", footer_text="🎯 بدون تلميح: 15 نقطة | مع تلميح: 10 نقاط")
+    flex = create_game_bubble("🧩 لغز", "#FF6B9D", f"{riddle['riddle']}\n\n💡 تلميح؟ اكتب: تلميح\n❌ استسلام؟ اكتب: جاوب\n✍️ اكتب إجابتك", footer_text="🎯 بدون تلميح: 15 نقطة | مع تلميح: 10 نقاط")
     line_bot_api.reply_message(reply_token, flex)
 
 def send_hint(reply_token, session_id):
     if session_id not in game_sessions or game_sessions[session_id]["type"] != "riddle":
-        return line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ ابدأ لغز جديد أولاً!"))
+        return line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ ابدأ لغز جديد!"))
     game = game_sessions[session_id]
-    if game["hint_used"]: return line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ تم استخدام التلميح مسبقاً!"))
+    if game["hint_used"]: return line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ تم استخدام التلميح!"))
     game["hint_used"] = True
     line_bot_api.reply_message(reply_token, TextSendMessage(text=f"💡 التلميح:\n{game['riddle']['hint']}"))
 
@@ -228,42 +240,19 @@ def check_riddle_answer(reply_token, text, session_id, user_id):
     if is_answer_correct(text, game["riddle"]["answer"]):
         points = 15 if not game["hint_used"] else 10
         player_name, total_score = update_score(user_id, points)
-        flex = create_success_message("✅ إجابة صحيحة!", f"اللاعب: {player_name}", f"الإجابة: {game['riddle']['answer']}", points, total_score)
+        flex = create_success_message("✅ صحيح!", f"اللاعب: {player_name}", f"الإجابة: {game['riddle']['answer']}", points, total_score)
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
-    else: 
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول مرة أخرى أو اكتب: جاوب"))
+    else: line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول أو اكتب: جاوب"))
 
-# ===== لعبة خمن المثل (بدون خيارات) =====
 def start_proverb_game(reply_token, session_id):
     proverb = random.choice(emoji_proverbs)
     game_sessions[session_id] = {"type": "proverb", "answer": proverb["answer"]}
     flex = FlexSendMessage(alt_text="🎭 خمن المثل", contents={
         "type": "bubble",
-        "hero": {
-            "type": "box", 
-            "layout": "vertical", 
-            "contents": [
-                {"type": "text", "text": "🎭 خمن المثل", "size": "xxl", "weight": "bold", "color": "#ffffff"},
-                {"type": "text", "text": proverb['emoji'], "size": "3xl", "align": "center", "margin": "md"}
-            ], 
-            "backgroundColor": "#4ECDC4", 
-            "paddingAll": "20px"
-        },
-        "body": {
-            "type": "box", 
-            "layout": "vertical", 
-            "contents": [
-                {"type": "text", "text": "✍️ اكتب المثل الصحيح", "size": "md", "align": "center", "weight": "bold"},
-                {"type": "separator", "margin": "md"},
-                {"type": "text", "text": "💡 اكتب: جاوب (للحل)", "size": "sm", "color": "#999999", "margin": "md", "align": "center"}
-            ]
-        },
-        "footer": {
-            "type": "box", 
-            "layout": "vertical", 
-            "contents": [{"type": "text", "text": "🎯 إجابة صحيحة: 20 نقطة", "size": "xs", "color": "#aaaaaa", "align": "center"}]
-        }
+        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🎭 خمن المثل", "size": "xxl", "weight": "bold", "color": "#ffffff"}, {"type": "text", "text": proverb['emoji'], "size": "3xl", "align": "center", "margin": "md"}], "backgroundColor": "#4ECDC4", "paddingAll": "20px"},
+        "body": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "✍️ اكتب المثل", "size": "md", "align": "center", "weight": "bold"}, {"type": "separator", "margin": "md"}, {"type": "text", "text": "💡 جاوب (للحل)", "size": "sm", "color": "#999999", "margin": "md", "align": "center"}]},
+        "footer": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🎯 20 نقطة", "size": "xs", "color": "#aaaaaa", "align": "center"}]}
     })
     line_bot_api.reply_message(reply_token, flex)
 
@@ -271,44 +260,20 @@ def check_proverb_answer(reply_token, text, session_id, user_id):
     game = game_sessions[session_id]
     if is_answer_correct(text, game["answer"], 0.7):
         player_name, total_score = update_score(user_id, 20)
-        flex = create_success_message("🎉 ممتاز!", f"اللاعب: {player_name}", f"المثل: {game['answer']}", 20, total_score)
+        flex = create_success_message("🎉 ممتاز!", f"{player_name}", f"المثل: {game['answer']}", 20, total_score)
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول مرة أخرى أو اكتب: جاوب"))
+    else: line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول أو: جاوب"))
 
-# ===== لعبة ترتيب الحروف (بدون خيارات) =====
 def start_letter_sort_game(reply_token, session_id):
     word = random.choice(scrambled_words)
     scrambled = ''.join(random.sample(word, len(word)))
     game_sessions[session_id] = {"type": "letter_sort", "answer": word}
-    
-    flex = FlexSendMessage(alt_text="🔀 ترتيب الحروف", contents={
+    flex = FlexSendMessage(alt_text="🔀 ترتيب", contents={
         "type": "bubble",
-        "hero": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {"type": "text", "text": "🔀 رتب الحروف", "size": "xxl", "weight": "bold", "color": "#ffffff"},
-                {"type": "text", "text": scrambled, "size": "3xl", "align": "center", "margin": "md", "weight": "bold"}
-            ],
-            "backgroundColor": "#9B59B6",
-            "paddingAll": "20px"
-        },
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {"type": "text", "text": "✍️ اكتب الكلمة الصحيحة", "size": "md", "align": "center", "weight": "bold"},
-                {"type": "separator", "margin": "md"},
-                {"type": "text", "text": "💡 اكتب: جاوب (للحل)", "size": "sm", "color": "#999999", "margin": "md", "align": "center"}
-            ]
-        },
-        "footer": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [{"type": "text", "text": "🎯 إجابة صحيحة: 15 نقطة", "size": "xs", "color": "#aaaaaa", "align": "center"}]
-        }
+        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🔀 رتب", "size": "xxl", "weight": "bold", "color": "#ffffff"}, {"type": "text", "text": scrambled, "size": "3xl", "align": "center", "margin": "md", "weight": "bold"}], "backgroundColor": "#9B59B6", "paddingAll": "20px"},
+        "body": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "✍️ اكتب الكلمة", "size": "md", "align": "center", "weight": "bold"}, {"type": "separator", "margin": "md"}, {"type": "text", "text": "💡 جاوب (للحل)", "size": "sm", "color": "#999999", "margin": "md", "align": "center"}]},
+        "footer": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🎯 15 نقطة", "size": "xs", "color": "#aaaaaa", "align": "center"}]}
     })
     line_bot_api.reply_message(reply_token, flex)
 
@@ -316,155 +281,52 @@ def check_letter_sort_answer(reply_token, text, session_id, user_id):
     game = game_sessions[session_id]
     if is_answer_correct(text, game["answer"]):
         player_name, total_score = update_score(user_id, 15)
-        flex = create_success_message("✅ ممتاز!", f"اللاعب: {player_name}", f"الكلمة: {game['answer']}", 15, total_score)
+        flex = create_success_message("✅ ممتاز!", f"{player_name}", f"الكلمة: {game['answer']}", 15, total_score)
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول مرة أخرى أو اكتب: جاوب"))
+    else: line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ خطأ! حاول أو: جاوب"))
 
-# ===== لعبة الحروف الجماعية =====
-def start_letter_elimination_game(reply_token, session_id):
-    game_sessions[session_id] = {"type": "letter_elimination", "players": {}, "letters": [], "eliminated": []}
-    line_bot_api.reply_message(reply_token, TextSendMessage(text="🎮 لعبة الحروف!\n\n📋 القواعد:\n١. كل لاعب يرسل حرف: حرفي: [حرف]\n٢. خمنوا كلمات من الحروف المتاحة\n٣. من يخطئ يستبعد هو وحرفه\n\n🎯 20 نقطة لكل كلمة صحيحة!"))
-
-def submit_letter(reply_token, text, session_id, user_id):
-    if session_id not in game_sessions or game_sessions[session_id]["type"] != "letter_elimination": return
-    letter = text.split(":", 1)[1].strip()
-    if len(letter) != 1: return line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ أرسل حرف واحد فقط!"))
-    game, player_name = game_sessions[session_id], get_or_create_player_name(user_id)
-    if player_name in game["players"]: return line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ لقد أرسلت حرفك!"))
-    game["players"][player_name] = letter
-    game["letters"].append(letter)
-    line_bot_api.reply_message(reply_token, TextSendMessage(text=f"✅ حرف '{letter}' للاعب {player_name}\n\n📝 الحروف المتاحة:\n{' - '.join(game['letters'])}\n\n🎯 خمنوا كلمة من هذه الحروف!"))
-
-def guess_word_from_letters(reply_token, text, session_id, user_id):
-    game, word = game_sessions[session_id], text.strip()
-    player_name = get_or_create_player_name(user_id)
-    available = game["letters"].copy()
-    valid = all(letter in available and not available.remove(letter) for letter in word) if len(word) >= 3 else False
-    
-    if valid:
-        player_name, total_score = update_score(user_id, 20)
-        line_bot_api.reply_message(reply_token, create_success_message("🎉 كلمة صحيحة!", f"اللاعب: {player_name}", f"الكلمة: {word}", 20, total_score))
-    elif player_name in game["players"]:
-        letter = game["players"][player_name]
-        game["eliminated"].append(player_name)
-        game["letters"].remove(letter)
-        del game["players"][player_name]
-        msg = f"❌ خطأ! تم استبعاد {player_name} وحرفه '{letter}'\n\n📝 الحروف المتبقية:\n{' - '.join(game['letters']) if game['letters'] else 'لا توجد حروف'}"
-        if len(game["players"]) == 1:
-            winner = list(game["players"].keys())[0]
-            msg += f"\n\n🏆 الفائز: {winner}!"
-            del game_sessions[session_id]
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=msg))
-    else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ كلمة غير صحيحة!"))
-
-# ===== لعبة السباق =====
-def start_speed_race(reply_token, session_id):
-    word = random.choice(["سريع", "برق", "نور", "ضوء", "نجم", "صاروخ"])
-    game_sessions[session_id] = {"type": "speed_race", "target": word, "start_time": datetime.now(), "winner": None}
-    flex = create_game_bubble("⚡ سباق السرعة", "#F39C12", f"🏁 أسرع واحد يكتب:\n\n{word}", footer_text="🎯 الفائز: 25 نقطة")
-    line_bot_api.reply_message(reply_token, flex)
-
-def check_speed_response(reply_token, text, session_id, user_id):
-    game = game_sessions[session_id]
-    if not game["winner"] and is_answer_correct(text, game["target"]):
-        elapsed = (datetime.now() - game["start_time"]).total_seconds()
-        player_name, total_score = update_score(user_id, 25)
-        game["winner"] = player_name
-        flex = create_success_message("🏆 الفائز!", f"اللاعب: {player_name}", f"⏱️ الوقت: {elapsed:.2f} ثانية", 25, total_score)
-        del game_sessions[session_id]
-        line_bot_api.reply_message(reply_token, flex)
-
-# ===== تحليل الشخصية بالـ AI =====
-def analyze_personality(reply_token, analysis_input, user_id):
-    try:
-        player_name = get_or_create_player_name(user_id)
-        prompt = f"أنت محلل شخصية محترف. حلل شخصية شخص بناءً على: {analysis_input}. قدم تحليل قصير وإيجابي في 3-4 جمل بالعربية مع رموز تعبيرية مناسبة."
-        response = model.generate_content(prompt)
-        
-        flex = FlexSendMessage(alt_text="✨ تحليل شخصية", contents={
-            "type": "bubble",
-            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": f"✨ تحليل {player_name}", "size": "xl", "weight": "bold", "color": "#ffffff", "wrap": True}], "backgroundColor": "#8E44AD", "paddingAll": "20px"},
-            "body": {"type": "box", "layout": "vertical", "contents": [
-                {"type": "text", "text": response.text, "size": "md", "wrap": True, "margin": "md"},
-                {"type": "separator", "margin": "xl"},
-                {"type": "text", "text": "🤖 بواسطة Google Gemini AI", "size": "xs", "color": "#999999", "margin": "md", "align": "center"}
-            ]}
-        })
-        line_bot_api.reply_message(reply_token, flex)
-    except Exception as e:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ حدث خطأ في التحليل!\nتأكد من إضافة Google API Key في الإعدادات."))
-
-# ===== لعبة السؤال العام =====
 def start_trivia_game(reply_token, session_id):
     question = random.choice(trivia_questions)
     game_sessions[session_id] = {"type": "trivia", "question": question, "correct": question["correct"]}
-    flex = create_game_bubble("❓ سؤال عام", "#2ECC71", question['q'], question['options'], "🎯 إجابة صحيحة: 15 نقطة")
+    flex = create_game_bubble("❓ سؤال", "#2ECC71", question['q'], question['options'], "🎯 15 نقطة")
     line_bot_api.reply_message(reply_token, flex)
 
 def check_trivia_answer_by_number(reply_token, number, session_id, user_id):
     game = game_sessions[session_id]
     if number == game["correct"]:
         player_name, total_score = update_score(user_id, 15)
-        flex = create_success_message("✅ إجابة صحيحة!", f"اللاعب: {player_name}", f"الإجابة: {game['question']['options'][game['correct']-1]}", 15, total_score)
+        flex = create_success_message("✅ صحيح!", f"{player_name}", f"{game['question']['options'][game['correct']-1]}", 15, total_score)
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
     else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ الإجابة الصحيحة:\n{game['correct']}. {game['question']['options'][game['correct']-1]}"))
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ الإجابة: {game['question']['options'][game['correct']-1]}"))
         del game_sessions[session_id]
 
-# ===== لعبة خمن المغني =====
 def start_singer_game(reply_token, session_id):
     song = random.choice(arabic_songs)
     all_artists = list(set([s["artist"] for s in arabic_songs]))
     options = [song["artist"]] + random.sample([a for a in all_artists if a != song["artist"]], min(3, len(all_artists)-1))
     random.shuffle(options)
     game_sessions[session_id] = {"type": "singer", "artist": song["artist"], "correct_index": options.index(song["artist"]) + 1}
-    flex = create_game_bubble("🎵 خمن المغني", "#E91E63", f"من المغني؟\n\n'{song['lyrics']}'", options, "🎯 إجابة صحيحة: 20 نقطة")
+    flex = create_game_bubble("🎵 المغني", "#E91E63", f"من المغني؟\n\n'{song['lyrics']}'", options, "🎯 20 نقطة")
     line_bot_api.reply_message(reply_token, flex)
 
 def check_singer_answer_by_number(reply_token, number, session_id, user_id):
     game = game_sessions[session_id]
     if number == game["correct_index"]:
         player_name, total_score = update_score(user_id, 20)
-        flex = create_success_message("🎉 صحيح!", f"اللاعب: {player_name}", f"المغني: {game['artist']}", 20, total_score)
+        flex = create_success_message("🎉 صحيح!", f"{player_name}", f"المغني: {game['artist']}", 20, total_score)
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
     else:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ المغني الصحيح: {game['artist']}"))
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ المغني: {game['artist']}"))
         del game_sessions[session_id]
 
-# ===== لعبة التوافق =====
-def calculate_compatibility(reply_token, name1, name2, user_id):
-    try:
-        compatibility = hash(name1 + name2) % 100
-        emoji, color, level = ("💕", "#E91E63", "متوافقان جداً!") if compatibility > 80 else ("💛", "#FFC107", "توافق جيد") if compatibility > 60 else ("💙", "#2196F3", "توافق متوسط") if compatibility > 40 else ("💔", "#9E9E9E", "توافق ضعيف")
-        player_name = get_or_create_player_name(user_id)
-        update_score(user_id, 5)
-        
-        flex = FlexSendMessage(alt_text="💕 حاسبة التوافق", contents={
-            "type": "bubble",
-            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": f"{emoji} حاسبة التوافق", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": color, "paddingAll": "20px"},
-            "body": {"type": "box", "layout": "vertical", "contents": [
-                {"type": "text", "text": f"{name1} 💫 {name2}", "size": "lg", "weight": "bold", "align": "center"},
-                {"type": "text", "text": f"{compatibility}%", "size": "3xl", "weight": "bold", "align": "center", "color": color, "margin": "md"},
-                {"type": "text", "text": "❤️" * (compatibility // 20), "size": "xl", "align": "center", "margin": "md"},
-                {"type": "text", "text": level, "size": "md", "align": "center", "margin": "md", "weight": "bold"},
-                {"type": "separator", "margin": "xl"},
-                {"type": "text", "text": f"✨ +5 نقاط لـ {player_name}", "size": "sm", "color": "#999999", "margin": "md", "align": "center"}
-            ]}
-        })
-        line_bot_api.reply_message(reply_token, flex)
-    except Exception as e:
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ حدث خطأ في حساب التوافق!"))
-
-# ===== لعبة الكلمة السريعة =====
 def start_quick_word_game(reply_token, session_id):
-    word = random.choice(["سريع", "برق", "نور", "ضوء", "نجم", "صاروخ", "طائرة"])
+    word = random.choice(["سريع", "برق", "نور", "ضوء", "نجم"])
     game_sessions[session_id] = {"type": "quick_word", "word": word, "start_time": datetime.now(), "winner": None}
-    flex = create_game_bubble("🏃 كلمة سريعة", "#FF5722", f"⚡ من الأسرع؟\n\nاكتب:\n{word}", footer_text="🎯 الفائز: 20 نقطة")
+    flex = create_game_bubble("🏃 كلمة سريعة", "#FF5722", f"⚡ أسرع واحد:\n\n{word}", footer_text="🎯 20 نقطة")
     line_bot_api.reply_message(reply_token, flex)
 
 def check_quick_word(reply_token, text, session_id, user_id):
@@ -473,7 +335,85 @@ def check_quick_word(reply_token, text, session_id, user_id):
         elapsed = (datetime.now() - game["start_time"]).total_seconds()
         player_name, total_score = update_score(user_id, 20)
         game["winner"] = player_name
-        flex = create_success_message("🏆 الفائز!", f"اللاعب: {player_name}", f"⏱️ الوقت: {elapsed:.2f}ث", 20, total_score)
+        flex = create_success_message("🏆 الفائز!", f"{player_name}", f"⏱️ {elapsed:.2f}ث", 20, total_score)
+        del game_sessions[session_id]
+        line_bot_api.reply_message(reply_token, flex)
+
+# ===== لعبة تحليل الشخصية =====
+def start_personality_test(reply_token, session_id):
+    question = random.choice(personality_questions)
+    game_sessions[session_id] = {"type": "personality", "question": question}
+    flex = create_game_bubble("✨ تحليل الشخصية", "#8E44AD", question['q'], question['options'], "🎯 اكتشف نفسك!")
+    line_bot_api.reply_message(reply_token, flex)
+
+def check_personality_answer(reply_token, number, session_id, user_id):
+    game = game_sessions[session_id]
+    question = game["question"]
+    
+    if 1 <= number <= len(question["options"]):
+        selected_option = question["options"][number - 1]
+        analysis = question["analysis"][selected_option]
+        player_name = get_or_create_player_name(user_id)
+        
+        flex = FlexSendMessage(alt_text="✨ تحليل شخصيتك", contents={
+            "type": "bubble",
+            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": f"✨ تحليل {player_name}", "size": "xl", "weight": "bold", "color": "#ffffff", "wrap": True}], "backgroundColor": "#8E44AD", "paddingAll": "20px"},
+            "body": {"type": "box", "layout": "vertical", "contents": [
+                {"type": "text", "text": f"اخترت: {selected_option}", "size": "md", "weight": "bold", "align": "center"},
+                {"type": "separator", "margin": "lg"},
+                {"type": "text", "text": analysis, "size": "lg", "wrap": True, "margin": "lg", "align": "center"},
+                {"type": "separator", "margin": "lg"},
+                {"type": "text", "text": "✨ العب مرة أخرى: تحليل الشخصية", "size": "xs", "color": "#999999", "margin": "md", "align": "center"}
+            ]}
+        })
+        del game_sessions[session_id]
+        line_bot_api.reply_message(reply_token, flex)
+    else:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="❌ رقم غير صحيح!"))
+
+# ===== لعبة الأسئلة الشخصية =====
+def start_personal_questions(reply_token, session_id):
+    question = random.choice(personal_questions)
+    game_sessions[session_id] = {"type": "personal", "question": question}
+    
+    if question["type"] == "open":
+        flex = FlexSendMessage(alt_text="💭 سؤال شخصي", contents={
+            "type": "bubble",
+            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "💭 سؤال شخصي", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": "#3498DB", "paddingAll": "20px"},
+            "body": {"type": "box", "layout": "vertical", "contents": [
+                {"type": "text", "text": question['q'], "size": "lg", "wrap": True, "weight": "bold"},
+                {"type": "separator", "margin": "lg"},
+                {"type": "text", "text": "✍️ اكتب إجابتك الشخصية", "size": "sm", "color": "#999999", "margin": "md", "align": "center"},
+                {"type": "text", "text": "🎯 +10 نقاط لمشاركتك", "size": "xs", "color": "#999999", "margin": "sm", "align": "center"}
+            ]}
+        })
+    else:
+        flex = create_game_bubble("💭 سؤال شخصي", "#3498DB", question['q'], question['options'], "🎯 +5 نقاط")
+    
+    line_bot_api.reply_message(reply_token, flex)
+
+def check_personal_answer(reply_token, number, session_id, user_id):
+    game = game_sessions[session_id]
+    question = game["question"]
+    
+    if question["type"] == "open":
+        return
+    
+    if 1 <= number <= len(question["options"]):
+        selected = question["options"][number - 1]
+        player_name, total_score = update_score(user_id, question["points"])
+        
+        flex = FlexSendMessage(alt_text="💭 إجابتك", contents={
+            "type": "bubble",
+            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "💭 إجابتك", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": "#3498DB", "paddingAll": "20px"},
+            "body": {"type": "box", "layout": "vertical", "contents": [
+                {"type": "text", "text": f"{player_name} اختار:", "size": "md", "weight": "bold", "align": "center"},
+                {"type": "text", "text": selected, "size": "xl", "weight": "bold", "align": "center", "color": "#3498DB", "margin": "md"},
+                {"type": "separator", "margin": "lg"},
+                {"type": "text", "text": f"✨ +{question['points']} نقاط", "size": "md", "align": "center", "margin": "md"},
+                {"type": "text", "text": f"💎 المجموع: {total_score}", "size": "sm", "color": "#999999", "align": "center", "margin": "sm"}
+            ]}
+        })
         del game_sessions[session_id]
         line_bot_api.reply_message(reply_token, flex)
 
@@ -497,7 +437,7 @@ def show_player_score(reply_token, user_id):
     line_bot_api.reply_message(reply_token, flex)
 
 def show_leaderboard(reply_token):
-    if not player_scores: return line_bot_api.reply_message(reply_token, TextSendMessage(text="📊 لا توجد نقاط بعد!\n\nابدأ اللعب لتحصل على نقاط 🎮"))
+    if not player_scores: return line_bot_api.reply_message(reply_token, TextSendMessage(text="📊 لا توجد نقاط بعد!"))
     sorted_scores = sorted(player_scores.items(), key=lambda x: x[1], reverse=True)[:10]
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
     contents = [{"type": "text", "text": "🏆 المتصدرين", "size": "xl", "weight": "bold"}, {"type": "separator", "margin": "lg"}]
@@ -510,7 +450,7 @@ def show_leaderboard(reply_token):
     
     flex = FlexSendMessage(alt_text="🏆 المتصدرين", contents={
         "type": "bubble",
-        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🏆 لوحة المتصدرين", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": "#FFD700", "paddingAll": "20px"},
+        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🏆 المتصدرين", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": "#FFD700", "paddingAll": "20px"},
         "body": {"type": "box", "layout": "vertical", "contents": contents}
     })
     line_bot_api.reply_message(reply_token, flex)
