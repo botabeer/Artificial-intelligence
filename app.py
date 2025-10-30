@@ -84,6 +84,7 @@ def handle_message(event):
     session_id = get_session_id(event)
     
     if text in ["مساعدة", "مساعده"]: return send_help_menu(event.reply_token)
+    if text == "ايقاف" and session_id in game_sessions: return stop_game(event.reply_token, session_id)
     if session_id in game_sessions and text.isdigit(): return handle_numbered_answer(event.reply_token, int(text), session_id, user_id)
     if text == "جاوب" and session_id in game_sessions: return show_answer(event.reply_token, session_id)
     
@@ -103,21 +104,62 @@ def handle_message(event):
     if text in commands: return commands[text]()
     if session_id in game_sessions: handle_text_answer(event.reply_token, text, session_id, user_id)
 
+def stop_game(reply_token, session_id):
+    """إيقاف اللعبة الحالية"""
+    if session_id in game_sessions:
+        game_type = game_sessions[session_id]["type"]
+        del game_sessions[session_id]
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="⏹️ تم إيقاف اللعبة!\n\nابدأ لعبة جديدة من القائمة 🎮"))
+    else:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ لا توجد لعبة نشطة!"))
+
 def send_help_menu(reply_token):
     games = [
-        ("🧩 ألعاب الذكاء", "#2C3E50", ["لغز - ألغاز ذكية", "تلميح - مساعدة", "خمن المثل - إيموجي", "ترتيب الحروف - رتب"]),
-        ("🎵 ألعاب ثقافية", "#34495E", ["سؤال عام - ثقافة", "خمن المغني - أغاني", "كلمة سريعة - سرعة"]),
-        ("👥 ألعاب جماعية", "#5D6D7E", ["الكلمة الأخيرة - تحدي الكلمات"]),
-        ("🏆 النقاط", "#7F8C8D", ["نقاطي - نقاطك", "المتصدرين - الأفضل"]),
-        ("ℹ️ نصائح", "#95A5A6", ["• 'جاوب' للحل", "• الأرقام للإجابة", "• شارك الألعاب!"])
+        ("🧩 ألعاب الذكاء", "#1a1a1a", ["لغز", "خمن المثل", "ترتيب الحروف"]),
+        ("🎵 ألعاب ثقافية", "#2d2d2d", ["سؤال عام", "خمن المغني"]),
+        ("👥 ألعاب جماعية", "#404040", ["كلمة سريعة", "الكلمة الأخيرة"]),
+        ("🏆 النقاط", "#525252", ["نقاطي", "المتصدرين"]),
+        ("ℹ️ نصائح", "#666666", ["• 'جاوب' للحل", "• 'ايقاف' لإيقاف اللعبة"])
     ]
     
     bubbles = []
     for title, color, items in games:
         bubbles.append({
             "type": "bubble",
-            "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": title, "size": "xl", "weight": "bold", "color": "#ffffff", "align": "center"}], "backgroundColor": color, "paddingAll": "20px"},
-            "body": {"type": "box", "layout": "vertical", "spacing": "md", "contents": [{"type": "text", "text": f"• {game}", "size": "sm", "wrap": True, "color": "#2C3E50"} for game in items]}
+            "size": "micro",
+            "hero": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [{
+                    "type": "text",
+                    "text": title,
+                    "size": "lg",
+                    "weight": "bold",
+                    "color": "#ffffff",
+                    "align": "center"
+                }],
+                "backgroundColor": color,
+                "paddingAll": "15px",
+                "cornerRadius": "12px"
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [{
+                    "type": "text",
+                    "text": f"• {game}",
+                    "size": "xs",
+                    "wrap": True,
+                    "color": "#333333"
+                } for game in items],
+                "paddingAll": "15px"
+            },
+            "styles": {
+                "body": {
+                    "backgroundColor": "#f8f9fa"
+                }
+            }
         })
     
     flex = FlexSendMessage(alt_text="🎮 قائمة الألعاب", contents={"type": "carousel", "contents": bubbles})
@@ -157,21 +199,80 @@ def handle_text_answer(reply_token, text, session_id, user_id):
     if game_type in handlers: handlers[game_type](reply_token, text, session_id, user_id)
 
 def create_game_bubble(title, color, question, options=None, footer_text=""):
-    contents = [{"type": "text", "text": question, "size": "lg", "wrap": True, "weight": "bold", "color": "#2C3E50"}]
+    contents = [{
+        "type": "text",
+        "text": question,
+        "size": "md",
+        "wrap": True,
+        "weight": "bold",
+        "color": "#1a1a1a"
+    }]
+    
     if options:
         contents.extend([
-            {"type": "separator", "margin": "xl", "color": "#BDC3C7"}, 
-            {"type": "text", "text": "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(options)]), "size": "md", "wrap": True, "margin": "md", "color": "#34495E"}, 
-            {"type": "separator", "margin": "xl", "color": "#BDC3C7"}, 
-            {"type": "text", "text": "📝 اكتب رقم الإجابة (1-4)", "size": "sm", "color": "#7F8C8D", "margin": "md", "align": "center"}
+            {"type": "separator", "margin": "lg", "color": "#e8e8e8"},
+            {
+                "type": "text",
+                "text": "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(options)]),
+                "size": "sm",
+                "wrap": True,
+                "margin": "lg",
+                "color": "#404040"
+            },
+            {"type": "separator", "margin": "lg", "color": "#e8e8e8"},
+            {
+                "type": "text",
+                "text": "📝 اكتب رقم الإجابة (1-4)",
+                "size": "xs",
+                "color": "#808080",
+                "margin": "lg",
+                "align": "center"
+            }
         ])
     
     bubble = {
         "type": "bubble",
-        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": title, "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": color, "paddingAll": "20px"},
-        "body": {"type": "box", "layout": "vertical", "contents": contents, "backgroundColor": "#FFFFFF"}
+        "size": "mega",
+        "hero": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{
+                "type": "text",
+                "text": title,
+                "size": "xl",
+                "weight": "bold",
+                "color": "#ffffff"
+            }],
+            "backgroundColor": color,
+            "paddingAll": "20px",
+            "cornerRadius": "0px"
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": contents,
+            "paddingAll": "20px"
+        },
+        "styles": {
+            "body": {"backgroundColor": "#ffffff"},
+            "footer": {"backgroundColor": "#f8f9fa"}
+        }
     }
-    if footer_text: bubble["footer"] = {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": footer_text, "size": "xs", "color": "#95A5A6", "align": "center"}], "backgroundColor": "#ECF0F1"}
+    
+    if footer_text:
+        bubble["footer"] = {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{
+                "type": "text",
+                "text": footer_text,
+                "size": "xxs",
+                "color": "#999999",
+                "align": "center"
+            }],
+            "paddingAll": "12px"
+        }
+    
     return FlexSendMessage(alt_text=title, contents=bubble)
 
 # ===== الألعاب =====
@@ -295,19 +396,63 @@ def check_quick_word(reply_token, text, session_id, user_id):
 
 # ===== لعبة الكلمة الأخيرة (جماعية) =====
 def start_last_letter_game(reply_token, session_id):
-    game_sessions[session_id] = {"type": "last_letter", "words": [], "players": {}, "current_letter": None, "eliminated": []}
+    game_sessions[session_id] = {
+        "type": "last_letter",
+        "words": [],
+        "players": {},
+        "current_letter": None,
+        "max_words": 10,
+        "scores": {}
+    }
+    
     flex = FlexSendMessage(alt_text="🔤 الكلمة الأخيرة", contents={
         "type": "bubble",
-        "hero": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🔤 الكلمة الأخيرة", "size": "xxl", "weight": "bold", "color": "#ffffff"}], "backgroundColor": "#2C3E50", "paddingAll": "20px"},
-        "body": {"type": "box", "layout": "vertical", "contents": [
-            {"type": "text", "text": "📋 قواعد اللعبة:", "size": "lg", "weight": "bold", "color": "#2C3E50"},
-            {"type": "text", "text": "١. اكتب كلمة عربية", "size": "sm", "margin": "md", "color": "#34495E"},
-            {"type": "text", "text": "٢. اللاعب التالي يبدأ بآخر حرف", "size": "sm", "margin": "sm", "color": "#34495E"},
-            {"type": "text", "text": "٣. لا تكرر الكلمات", "size": "sm", "margin": "sm", "color": "#34495E"},
-            {"type": "separator", "margin": "xl", "color": "#BDC3C7"},
-            {"type": "text", "text": "✍️ ابدأ بأي كلمة!", "size": "md", "weight": "bold", "margin": "md", "align": "center", "color": "#2C3E50"}
-        ], "backgroundColor": "#FFFFFF"},
-        "footer": {"type": "box", "layout": "vertical", "contents": [{"type": "text", "text": "🎯 10 نقاط لكل كلمة صحيحة", "size": "xs", "color": "#95A5A6", "align": "center"}], "backgroundColor": "#ECF0F1"}
+        "size": "mega",
+        "hero": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{
+                "type": "text",
+                "text": "🔤 الكلمة الأخيرة",
+                "size": "xl",
+                "weight": "bold",
+                "color": "#ffffff"
+            }],
+            "backgroundColor": "#1a1a1a",
+            "paddingAll": "20px",
+            "cornerRadius": "0px"
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": "📋 قواعد اللعبة:", "size": "md", "weight": "bold", "color": "#1a1a1a"},
+                {"type": "text", "text": "١. اكتب كلمة عربية", "size": "sm", "margin": "md", "color": "#404040"},
+                {"type": "text", "text": "٢. اللاعب التالي يبدأ بآخر حرف", "size": "sm", "margin": "sm", "color": "#404040"},
+                {"type": "text", "text": "٣. لا تكرر الكلمات", "size": "sm", "margin": "sm", "color": "#404040"},
+                {"type": "text", "text": "٤. اللعبة تنتهي بعد 10 كلمات", "size": "sm", "margin": "sm", "color": "#404040"},
+                {"type": "separator", "margin": "lg", "color": "#e8e8e8"},
+                {"type": "text", "text": "✍️ ابدأ بأي كلمة!", "size": "md", "weight": "bold", "margin": "lg", "align": "center", "color": "#1a1a1a"},
+                {"type": "text", "text": "⏹️ اكتب 'ايقاف' لإنهاء اللعبة", "size": "xs", "color": "#808080", "align": "center", "margin": "sm"}
+            ],
+            "paddingAll": "20px"
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{
+                "type": "text",
+                "text": "🎯 10 نقاط لكل كلمة صحيحة",
+                "size": "xxs",
+                "color": "#999999",
+                "align": "center"
+            }],
+            "paddingAll": "12px"
+        },
+        "styles": {
+            "body": {"backgroundColor": "#ffffff"},
+            "footer": {"backgroundColor": "#f8f9fa"}
+        }
     })
     line_bot_api.reply_message(reply_token, flex)
 
@@ -322,19 +467,78 @@ def check_last_letter_word(reply_token, text, session_id, user_id):
     
     # تحقق من عدم تكرار الكلمة
     if word in game["words"]:
-        return line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ كلمة مكررة! {player_name} خارج اللعبة!"))
+        return line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ كلمة مكررة! حاول مرة أخرى"))
     
     # تحقق من الحرف الأول
     if game["current_letter"] and word[0] != game["current_letter"]:
-        return line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ يجب البدء بحرف: {game['current_letter']}\n{player_name} خارج اللعبة!"))
+        return line_bot_api.reply_message(reply_token, TextSendMessage(text=f"❌ يجب البدء بحرف: {game['current_letter']}\nحاول مرة أخرى"))
     
     # كلمة صحيحة
     game["words"].append(word)
     game["current_letter"] = word[-1]
-    player_name, total_score = update_score(user_id, 10)
     
-    message = f"✅ {word}\n\n👤 {player_name} (+10 نقاط)\n🔤 الحرف التالي: {game['current_letter']}\n📝 عدد الكلمات: {len(game['words'])}"
-    line_bot_api.reply_message(reply_token, TextSendMessage(text=message))
+    # تحديث نقاط اللاعب في اللعبة
+    if player_name not in game["scores"]:
+        game["scores"][player_name] = 0
+    game["scores"][player_name] += 1
+    
+    # إضافة نقاط للاعب
+    update_score(user_id, 10)
+    
+    # التحقق من انتهاء اللعبة
+    if len(game["words"]) >= game["max_words"]:
+        # تحديد الفائز
+        winner = max(game["scores"].items(), key=lambda x: x[1])
+        winner_name = winner[0]
+        winner_score = winner[1]
+        
+        # نقاط إضافية للفائز
+        winner_id = [uid for uid, name in player_names.items() if name == winner_name][0]
+        update_score(winner_id, 30)
+        
+        # رسالة النهاية
+        results = "\n".join([f"• {name}: {score} كلمة" for name, score in sorted(game["scores"].items(), key=lambda x: x[1], reverse=True)])
+        
+        flex = FlexSendMessage(alt_text="🏆 انتهت اللعبة!", contents={
+            "type": "bubble",
+            "size": "mega",
+            "hero": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [{
+                    "type": "text",
+                    "text": "🏆 انتهت اللعبة!",
+                    "size": "xl",
+                    "weight": "bold",
+                    "color": "#ffffff"
+                }],
+                "backgroundColor": "#1a1a1a",
+                "paddingAll": "20px"
+            },
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {"type": "text", "text": f"الفائز: {winner_name}", "size": "lg", "weight": "bold", "color": "#1a1a1a", "align": "center"},
+                    {"type": "text", "text": f"{winner_score} كلمات صحيحة", "size": "md", "color": "#404040", "align": "center", "margin": "sm"},
+                    {"type": "separator", "margin": "lg", "color": "#e8e8e8"},
+                    {"type": "text", "text": "📊 النتائج:", "size": "md", "weight": "bold", "color": "#1a1a1a", "margin": "lg"},
+                    {"type": "text", "text": results, "size": "sm", "color": "#404040", "margin": "md", "wrap": True},
+                    {"type": "separator", "margin": "lg", "color": "#e8e8e8"},
+                    {"type": "text", "text": f"✨ {winner_name} حصل على +30 نقطة إضافية!", "size": "sm", "color": "#666666", "margin": "lg", "align": "center", "wrap": True}
+                ],
+                "paddingAll": "20px"
+            },
+            "styles": {"body": {"backgroundColor": "#ffffff"}}
+        })
+        
+        del game_sessions[session_id]
+        line_bot_api.reply_message(reply_token, flex)
+    else:
+        # اللعبة مستمرة
+        remaining = game["max_words"] - len(game["words"])
+        message = f"✅ {word}\n\n👤 {player_name} (+10 نقاط)\n🔤 الحرف التالي: {game['current_letter']}\n📝 الكلمات: {len(game['words'])}/10 ({remaining} متبقية)"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=message))
 
 # ===== عرض النقاط =====
 def show_player_score(reply_token, user_id):
