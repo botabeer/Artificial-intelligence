@@ -490,6 +490,178 @@ def handle_message(ev):
             line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
         return
     
+    if txt in ["ترتيب الحروف", "ترتيب"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🔀"))
+        word_data = generate_scrambled_word()
+        if word_data:
+            game_sessions[sid] = {"type": "letter_sort", "data": word_data}
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🔀 رتب\n\n{word_data['scrambled']}\n\n✍️ اكتب الكلمة\n🎯 15 نقطة"))
+        else:
+            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
+        return
+    
+    if txt in ["سؤال عام", "سؤال"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... ❓"))
+        trivia = generate_trivia()
+        if trivia:
+            game_sessions[sid] = {"type": "trivia", "data": trivia}
+            opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(trivia['options'])])
+            line_bot_api.push_message(uid, TextSendMessage(text=f"❓ سؤال\n\n{trivia['q']}\n\n{opts}\n\n📝 رقم (1-4)\n🎯 15 نقطة"))
+        else:
+            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
+        return
+    
+    if txt in ["خمن المغني", "المغني"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🎵"))
+        singer = generate_singer_question()
+        if singer:
+            game_sessions[sid] = {"type": "singer", "data": singer}
+            opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(singer['options'])])
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🎵 خمن\n\n\"{singer['lyrics']}\"\n\n{opts}\n\n📝 رقم (1-4)\n🎯 20 نقطة"))
+        else:
+            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
+        return
+    
+    if txt in ["كلمة سريعة", "سريع"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري... 🏃"))
+        word = generate_quick_word()
+        game_sessions[sid] = {"type": "quick_word", "word": word, "start": datetime.now(), "winner": None}
+        line_bot_api.push_message(uid, TextSendMessage(text=f"🏃 سريعة\n\n⚡ اكتب:\n{word}\n\n🎯 20 نقطة"))
+        return
+    
+    if txt in ["الكلمة الأخيرة", "كلمة اخيرة"]:
+        game_sessions[sid] = {"type": "last_letter", "words": [], "letter": None, "count": 0, "max": 10, "scores": {}}
+        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="🔤 الكلمة الأخيرة\n\n📋 القواعد:\n١. كلمة عربية\n٢. آخر حرف\n٣. لا تكرار\n٤. 10 كلمات\n\n✍️ ابدأ!\n🎯 10 نقاط"))
+    
+    if txt in ["جاوب", "الحل"] and sid in game_sessions:
+        g = game_sessions[sid]
+        answers = {
+            "riddle": f"💡 {g['data']['answer']}",
+            "proverb": f"💡 {g['data']['answer']}",
+            "letter_sort": f"💡 {g['data']['answer']}",
+            "trivia": f"💡 {g['data']['options'][g['data']['correct']-1]}",
+            "singer": f"💡 {g['data']['options'][g['data']['correct']-1]}"
+        }
+        ans = answers.get(g["type"], "")
+        if ans:
+            del game_sessions[sid]
+            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ استسلمت!\n\n{ans}"))
+    
+    if txt in ["نقاطي", "نقاط"]:
+        pn = get_or_create_player_name(uid)
+        score = get_player_score(uid)
+        rank = "🏆 أسطورة" if score > 200 else "💎 ماسي" if score > 150 else "⭐ نخبة" if score > 100 else "🥈 محترف" if score > 50 else "🥉 مبتدئ"
+        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"📊 نقاطك\n\n👤 {pn}\n💎 {score}\n{rank}"))
+    
+    if txt in ["المتصدرين", "الصدارة"]:
+        if not player_scores:
+            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="📊 لا نقاط!"))
+        
+        sorted_scores = sorted(player_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+        lb = "🏆 المتصدرين\n\n" + "\n".join([f"{medals[i]} {n}: {s}" for i, (n, s) in enumerate(sorted_scores)])
+        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=lb))
+    
+    # معالجة الإجابات
+    if sid in game_sessions:
+        g = game_sessions[sid]
+        
+        if txt.isdigit() and g["type"] in ["trivia", "singer"]:
+            num = int(txt)
+            if 1 <= num <= 4:
+                if num == g['data']['correct']:
+                    pts = 20 if g["type"] == "singer" else 15
+                    pn, ts = update_score(uid, pts)
+                    del game_sessions[sid]
+                    return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ صحيح!\n\n👤 {pn}\n🎯 +{pts}\n💎 {ts}"))
+                else:
+                    ans = g['data']['options'][g['data']['correct']-1]
+                    del game_sessions[sid]
+                    return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ {ans}"))
+        
+        if g["type"] == "riddle":
+            if is_answer_correct(txt, g['data']['answer']):
+                pts = 15 if not g["hint_used"] else 10
+                pn, ts = update_score(uid, pts)
+                del game_sessions[sid]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ صحيح!\n\n{g['data']['answer']}\n\n👤 {pn}\n🎯 +{pts}\n💎 {ts}"))
+            else:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ! حاول\n\nأو: جاوب"))
+        
+        elif g["type"] == "proverb":
+            if is_answer_correct(txt, g['data']['answer'], 0.7):
+                pn, ts = update_score(uid, 20)
+                del game_sessions[sid]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"🎉 ممتاز!\n\n{g['data']['answer']}\n\n👤 {pn}\n🎯 +20\n💎 {ts}"))
+            else:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ!\n\nجاوب"))
+        
+        elif g["type"] == "letter_sort":
+            if is_answer_correct(txt, g['data']['answer']):
+                pn, ts = update_score(uid, 15)
+                del game_sessions[sid]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ ممتاز!\n\n{g['data']['answer']}\n\n👤 {pn}\n🎯 +15\n💎 {ts}"))
+            else:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ!\n\nجاوب"))
+        
+        elif g["type"] == "quick_word":
+            if not g["winner"] and is_answer_correct(txt, g["word"]):
+                elapsed = (datetime.now() - g["start"]).total_seconds()
+                pn, ts = update_score(uid, 20)
+                g["winner"] = pn
+                del game_sessions[sid]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"🏆 الفائز!\n\n👤 {pn}\n⏱️ {elapsed:.2f}ث\n🎯 +20\n💎 {ts}"))
+        
+        elif g["type"] == "last_letter":
+            word = txt.strip()
+            pn = get_or_create_player_name(uid)
+            
+            if len(word) < 2:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ قصيرة!"))
+            
+            if word in g["words"]:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ مكررة!"))
+            
+            if g["letter"] and word[0] != g["letter"]:
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ ابدأ بـ: {g['letter']}"))
+            
+            g["words"].append(word)
+            g["letter"] = word[-1]
+            g["count"] += 1
+            
+            if pn not in g["scores"]:
+                g["scores"][pn] = 0
+            g["scores"][pn] += 1
+            
+            update_score(uid, 10)
+            
+            if g["count"] >= g["max"]:
+                winner = max(g["scores"].items(), key=lambda x: x[1])
+                w_name, w_score = winner[0], winner[1]
+                
+                w_id = [u for u, n in player_names.items() if n == w_name][0]
+                update_score(w_id, 30)
+                
+                results = "\n".join([f"• {n}: {s}" for n, s in sorted(g["scores"].items(), key=lambda x: x[1], reverse=True)])
+                
+                del game_sessions[sid]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"🏆 انتهت!\n\nالفائز: {w_name}\n{w_score} كلمات\n\n📊 النتائج:\n{results}\n\n✨ +30 للفائز"))
+            else:
+                remaining = g["max"] - g["count"]
+                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ {word}\n\n👤 {pn} (+10)\n🔤 التالي: {g['letter']}\n📝 {g['count']}/{g['max']} ({remaining} متبقية)"))
+    
+    # محادثة AI
+    ai_resp = chat_with_ai(txt, data['hist'])
+    data['hist'].append({'u': txt, 'a': ai_resp})
+    if len(data['hist']) > 10: 
+        data['hist'] = data['hist'][-10:]
+    line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=ai_resp))
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
+        return
+    
     if txt in ["تلميح", "hint"] and sid in game_sessions and game_sessions[sid]["type"] == "riddle":
         g = game_sessions[sid]
         if g["hint_used"]:
@@ -497,179 +669,11 @@ def handle_message(ev):
         g["hint_used"] = True
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"💡 {g['data']['hint']}"))
     
-# خمن المثل
-‏    if txt in ["خمن المثل", "المثل", "امثال", "أمثال"]:
-‏        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري توليد مثل جديد...\n\nانتظر قليلاً 🎭"))
-‏        proverb = generate_proverb()
-‏        if proverb:
-‏            game_sessions[sid] = {"type": "proverb", "data": proverb}
-‏            line_bot_api.push_message(uid, TextSendMessage(text=f"🎭 خمن المثل\n\n{proverb['emoji']}\n\n✍️ اكتب المثل كاملاً\n💡 جاوب (للحل)\n\n🎯 20 نقطة"))
-‏        else:
-‏            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، حدث خطأ. حاول مرة أخرى."))
-‏        return
-    
-    # ترتيب الحروف
-‏    if txt in ["ترتيب الحروف", "ترتيب", "الحروف"]:
-‏        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري توليد كلمة...\n\nانتظر قليلاً 🔀"))
-‏        word_data = generate_scrambled_word()
-‏        if word_data:
-‏            game_sessions[sid] = {"type": "letter_sort", "data": word_data}
-‏            line_bot_api.push_message(uid, TextSendMessage(text=f"🔀 رتب الحروف\n\n{word_data['scrambled']}\n\n✍️ اكتب الكلمة الصحيحة\n💡 جاوب (للحل)\n\n🎯 15 نقطة"))
-‏        else:
-‏            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، حدث خطأ. حاول مرة أخرى."))
-‏        return
-    
-    # سؤال عام
-‏    if txt in ["سؤال عام", "سؤال", "ثقافة", "معلومات"]:
-‏        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري توليد سؤال...\n\nانتظر قليلاً ❓"))
-‏        trivia = generate_trivia()
-‏        if trivia:
-‏            game_sessions[sid] = {"type": "trivia", "data": trivia}
-‏            opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(trivia['options'])])
-‏            line_bot_api.push_message(uid, TextSendMessage(text=f"❓ سؤال عام\n\n{trivia['q']}\n\n{opts}\n\n📝 اكتب رقم الإجابة (1-4)\n💡 جاوب (للحل)\n\n🎯 15 نقطة"))
-‏        else:
-‏            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، حدث خطأ. حاول مرة أخرى."))
-‏        return
-    
-    # خمن المغني
-‏    if txt in ["خمن المغني", "المغني", "موسيقى", "اغاني"]:
-‏        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري توليد سؤال...\n\nانتظر قليلاً 🎵"))
-‏        singer = generate_singer_question()
-‏        if singer:
-‏            game_sessions[sid] = {"type": "singer", "data": singer}
-‏            opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(singer['options'])])
-‏            line_bot_api.push_message(uid, TextSendMessage(text=f"🎵 خمن المغني\n\nمن المغني؟\n\n\"{singer['lyrics']}\"\n\n{opts}\n\n📝 اكتب رقم الإجابة (1-4)\n💡 جاوب (للحل)\n\n🎯 20 نقطة"))
-‏        else:
-‏            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، حدث خطأ. حاول مرة أخرى."))
-‏        return
-    
-    # كلمة سريعة
-‏    if txt in ["كلمة سريعة", "كلمة", "سريع", "سرعة"]:
-‏        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري الإعداد...\n\nانتظر قليلاً 🏃"))
-‏        word = generate_quick_word()
-‏        game_sessions[sid] = {"type": "quick_word", "word": word, "start": datetime.now(), "winner": None}
-‏        line_bot_api.push_message(uid, TextSendMessage(text=f"🏃 كلمة سريعة\n\n⚡ أسرع واحد يكتب:\n\n{word}\n\n🎯 20 نقطة"))
-‏        return
-    
-    # الكلمة الأخيرة
-‏    if txt in ["الكلمة الأخيرة", "الكلمة الاخيرة", "كلمة اخيرة"]:
-‏        game_sessions[sid] = {"type": "last_letter", "words": [], "letter": None}
-‏        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="🔤 الكلمة الأخيرة\n\n📋 القواعد:\n١. اكتب كلمة عربية\n٢. اللاعب التالي يبدأ بآخر حرف\n٣. لا تكرر الكلمات\n\n✍️ ابدأ بأي كلمة!\n\n🎯 10 نقاط لكل كلمة"))
-    
-    # جاوب (إظهار الحل)
-‏    if txt in ["جاوب", "الحل", "الجواب", "الاجابة"] and sid in game_sessions:
-‏        g = game_sessions[sid]
-‏        answers = {
-‏            "riddle": f"💡 الإجابة: {g['data']['answer']}",
-‏            "proverb": f"💡 المثل: {g['data']['answer']}",
-‏            "letter_sort": f"💡 الكلمة: {g['data']['answer']}",
-‏            "trivia": f"💡 الإجابة: {g['data']['options'][g['data']['correct']-1]}",
-‏            "singer": f"💡 المغني: {g['data']['options'][g['data']['correct']-1]}"
-        }
-‏        ans_text = answers.get(g["type"], "")
-‏        if ans_text:
-‏            del game_sessions[sid]
-‏            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ استسلمت!\n\n{ans_text}"))
-    
-    # نقاطي
-‏    if txt in ["نقاطي", "نقاط", "رصيدي", "نقطتي"]:
-‏        pn = get_or_create_player_name(uid)
-‏        score = get_player_score(uid)
-‏        rank, emoji = ("أسطورة", "🏆") if score > 200 else ("ماسي", "💎") if score > 150 else ("نخبة", "⭐") if score > 100 else ("محترف", "🥈") if score > 50 else ("مبتدئ", "🥉")
-‏        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"📊 نقاطك\n\n👤 {pn}\n💎 {score} نقطة\n\n{emoji} {rank}"))
-    
-    # المتصدرين
-‏    if txt in ["المتصدرين", "المتصدرون", "الصدارة", "leaderboard"]:
-‏        if not player_scores:
-‏            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="📊 لا توجد نقاط بعد!\n\nابدأ اللعب لتحصل على نقاط 🎮"))
-        
-‏        sorted_scores = sorted(player_scores.items(), key=lambda x: x[1], reverse=True)[:10]
-‏        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
-        
-‏        lb_text = "🏆 لوحة المتصدرين\n\n"
-‏        for i, (name, score) in enumerate(sorted_scores):
-‏            lb_text += f"{medals[i]} {name}: {score} نقطة\n"
-        
-‏        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=lb_text))
-    
-    # ==================== معالجة الإجابات ====================
-    
-‏    if sid in game_sessions:
-‏        g = game_sessions[sid]
-        
-        # إجابات رقمية
-‏        if txt.isdigit() and g["type"] in ["trivia", "singer"]:
-‏            num = int(txt)
-‏            if 1 <= num <= 4:
-‏                if num == g['data']['correct']:
-‏                    pts = 20 if g["type"] == "singer" else 15
-‏                    pn, ts = update_score(uid, pts)
-‏                    del game_sessions[sid]
-‏                    return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ إجابة صحيحة!\n\n👤 {pn}\n🎯 +{pts} نقطة\n💎 المجموع: {ts}"))
-‏                else:
-‏                    correct_ans = g['data']['options'][g['data']['correct']-1]
-‏                    del game_sessions[sid]
-‏                    return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ خطأ!\n\n✅ الإجابة الصحيحة:\n{correct_ans}"))
-        
-        # إجابات نصية
-‏        if g["type"] == "riddle":
-‏            if is_answer_correct(txt, g['data']['answer']):
-‏                pts = 15 if not g["hint_used"] else 10
-‏                pn, ts = update_score(uid, pts)
-‏                del game_sessions[sid]
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ صحيح!\n\nالإجابة: {g['data']['answer']}\n\n👤 {pn}\n🎯 +{pts} نقطة\n💎 المجموع: {ts}"))
-‏            else:
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ! حاول مرة أخرى\n\nأو اكتب: جاوب"))
-        
-‏        elif g["type"] == "proverb":
-‏            if is_answer_correct(txt, g['data']['answer'], 0.7):
-‏                pn, ts = update_score(uid, 20)
-‏                del game_sessions[sid]
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"🎉 ممتاز!\n\nالمثل: {g['data']['answer']}\n\n👤 {pn}\n🎯 +20 نقطة\n💎 المجموع: {ts}"))
-‏            else:
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ! حاول مرة أخرى\n\nأو: جاوب"))
-        
-‏        elif g["type"] == "letter_sort":
-‏            if is_answer_correct(txt, g['data']['answer']):
-‏                pn, ts = update_score(uid, 15)
-‏                del game_sessions[sid]
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ ممتاز!\n\nالكلمة: {g['data']['answer']}\n\n👤 {pn}\n🎯 +15 نقطة\n💎 المجموع: {ts}"))
-‏            else:
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="❌ خطأ! حاول\n\nأو: جاوب"))
-        
-‏        elif g["type"] == "quick_word":
-‏            if not g["winner"] and is_answer_correct(txt, g["word"]):
-‏                elapsed = (datetime.now() - g["start"]).total_seconds()
-‏                pn, ts = update_score(uid, 20)
-‏                g["winner"] = pn
-‏                del game_sessions[sid]
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"🏆 الفائز!\n\n👤 {pn}\n⏱️ {elapsed:.2f} ثانية\n🎯 +20 نقطة\n💎 المجموع: {ts}"))
-        
-‏        elif g["type"] == "last_letter":
-‏            word = txt.strip()
-‏            pn = get_or_create_player_name(uid)
-            
-‏            if len(word) < 2:
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ الكلمة قصيرة جداً!"))
-            
-            # التحقق بـ AI
-‏            is_valid, reason = generate_last_letter_validation(word, g["letter"], g["words"])
-            
-‏            if is_valid:
-‏                g["words"].append(word)
-‏                g["letter"] = word[-1]
-‏                pn, ts = update_score(uid, 10)
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ {word}\n\n👤 {pn}\n🎯 +10 نقاط\n🔤 الحرف التالي: {g['letter']}\n📝 عدد الكلمات: {len(g['words'])}"))
-‏            else:
-‏                return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"❌ {reason}"))
-    
-    # محادثة AI
-‏    ai_resp = chat_with_ai(txt, data['hist'])
-‏    data['hist'].append({'u': txt, 'a': ai_resp})
-‏    if len(data['hist']) > 10: 
-‏        data['hist'] = data['hist'][-10:]
-‏    line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=ai_resp))
-
-‏if __name__ == "__main__":
-‏    port = int(os.environ.get('PORT', 5000))
-‏    app.run(host='0.0.0.0', port=port, debug=False)
+    if txt in ["خمن المثل", "المثل"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🎭"))
+        proverb = generate_proverb()
+        if proverb:
+            game_sessions[sid] = {"type": "proverb", "data": proverb}
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🎭 خمن\n\n{proverb['emoji']}\n\n✍️ اكتب المثل\n🎯 20 نقطة"))
+        else:
+            line_bot
