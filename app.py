@@ -9,7 +9,6 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# المتغيرات البيئية
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
 LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -22,10 +21,8 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# تخزين البيانات
 game_sessions, player_scores, player_names, user_data = {}, {}, {}, {}
 
-# دوال مساعدة
 def similarity_ratio(a, b): return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 def is_answer_correct(u, c, t=0.75): return similarity_ratio(u, c) >= t
 
@@ -53,7 +50,6 @@ def get_user_data(uid):
     return user_data[uid]
 
 def ai_call(prompt):
-    """استدعاء Gemini AI مع معالجة الأخطاء"""
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -61,18 +57,13 @@ def ai_call(prompt):
         print(f"AI Error: {e}")
         return None
 
-# ==================== دوال الألعاب بـ AI ====================
-
 def generate_riddle():
-    """توليد لغز جديد بـ AI"""
-    prompt = """أنت خبير في الألغاز العربية. أنشئ لغزاً جديداً وإبداعياً.
+    prompt = """أنشئ لغزاً عربياً جديداً.
 
 الصيغة:
 اللغز: [نص اللغز]
-التلميح: [تلميح مساعد]
-الجواب: [الإجابة]
-
-شروط: ذكي، ممتع، واضح، غير مكرر
+التلميح: [تلميح]
+الجواب: [إجابة]
 
 مثال:
 اللغز: أنا موجود في كل مكان لكن لا يمكنك رؤيتي؟
@@ -81,25 +72,21 @@ def generate_riddle():
     
     result = ai_call(prompt)
     if not result: return None
-    
     try:
         lines = [l.strip() for l in result.split('\n') if l.strip()]
         riddle = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('اللغز:')), '')
         hint = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('التلميح:')), '')
         answer = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('الجواب:')), '')
-        
-        if riddle and hint and answer:
-            return {"riddle": riddle, "hint": hint, "answer": answer}
+        if riddle and hint and answer: return {"riddle": riddle, "hint": hint, "answer": answer}
     except: pass
     return None
 
 def generate_proverb():
-    """توليد مثل بالإيموجي"""
-    prompt = """أنشئ مثلاً عربياً مشهوراً وعبّر عنه بـ 2-4 إيموجي.
+    prompt = """أنشئ مثلاً عربياً بـ 2-4 إيموجي.
 
 الصيغة:
-الإيموجي: [إيموجي فقط]
-المثل: [المثل الكامل]
+الإيموجي: [إيموجي]
+المثل: [المثل]
 
 مثال:
 الإيموجي: 🐦✋
@@ -107,24 +94,20 @@ def generate_proverb():
     
     result = ai_call(prompt)
     if not result: return None
-    
     try:
         lines = [l.strip() for l in result.split('\n') if l.strip()]
         emoji = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('الإيموجي:')), '')
         proverb = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('المثل:')), '')
-        
-        if emoji and proverb:
-            return {"emoji": emoji, "answer": proverb}
+        if emoji and proverb: return {"emoji": emoji, "answer": proverb}
     except: pass
     return None
 
 def generate_scrambled_word():
-    """توليد كلمة مبعثرة"""
-    prompt = """أنشئ كلمة عربية (4-8 أحرف) وابعثر حروفها.
+    prompt = """أنشئ كلمة عربية (4-8 أحرف) مبعثرة.
 
 الصيغة:
-الكلمة المبعثرة: [حروف مخلوطة]
-الكلمة الصحيحة: [الكلمة الأصلية]
+الكلمة المبعثرة: [حروف]
+الكلمة الصحيحة: [كلمة]
 
 مثال:
 الكلمة المبعثرة: ةجمرب
@@ -132,28 +115,24 @@ def generate_scrambled_word():
     
     result = ai_call(prompt)
     if not result: return None
-    
     try:
         lines = [l.strip() for l in result.split('\n') if l.strip()]
         scrambled = next((l.split(':', 1)[1].strip() for l in lines if 'مبعثرة' in l), '')
         word = next((l.split(':', 1)[1].strip() for l in lines if 'صحيحة' in l), '')
-        
-        if scrambled and word:
-            return {"scrambled": scrambled, "answer": word}
+        if scrambled and word: return {"scrambled": scrambled, "answer": word}
     except: pass
     return None
 
 def generate_trivia():
-    """توليد سؤال ثقافي"""
     prompt = """أنشئ سؤالاً ثقافياً مع 4 خيارات.
 
 الصيغة:
-السؤال: [نص السؤال]
+السؤال: [سؤال]
 ١. [خيار]
 ٢. [خيار]
 ٣. [خيار]
 ٤. [خيار]
-الجواب: [رقم 1-4]
+الجواب: [رقم]
 
 مثال:
 السؤال: ما عاصمة فرنسا؟
@@ -165,29 +144,26 @@ def generate_trivia():
     
     result = ai_call(prompt)
     if not result: return None
-    
     try:
         lines = [l.strip() for l in result.split('\n') if l.strip()]
         question = next((l.split(':', 1)[1].strip() for l in lines if l.startswith('السؤال:')), '')
         options = [l.split('.', 1)[1].strip() for l in lines if re.match(r'^[١٢٣٤1234]\.', l)]
         correct = next((int(re.search(r'\d+', l.split(':', 1)[1]).group()) for l in lines if l.startswith('الجواب:')), 0)
-        
         if question and len(options) == 4 and 1 <= correct <= 4:
             return {"q": question, "options": options, "correct": correct}
     except: pass
     return None
 
 def generate_singer_question():
-    """توليد سؤال عن مغني"""
-    prompt = """أنشئ سؤالاً عن مغني عربي مع 4 خيارات.
+    prompt = """أنشئ سؤالاً عن مغني عربي.
 
 الصيغة:
-الأغنية: [جزء من كلمات]
+الأغنية: [كلمات]
 ١. [مغني]
 ٢. [مغني]
 ٣. [مغني]
 ٤. [مغني]
-الجواب: [رقم 1-4]
+الجواب: [رقم]
 
 مثال:
 الأغنية: "حبيبي يا نور العين"
@@ -199,26 +175,20 @@ def generate_singer_question():
     
     result = ai_call(prompt)
     if not result: return None
-    
     try:
         lines = [l.strip() for l in result.split('\n') if l.strip()]
         lyrics = next((l.split(':', 1)[1].strip().strip('"') for l in lines if l.startswith('الأغنية:')), '')
         options = [l.split('.', 1)[1].strip() for l in lines if re.match(r'^[١٢٣٤1234]\.', l)]
         correct = next((int(re.search(r'\d+', l.split(':', 1)[1]).group()) for l in lines if l.startswith('الجواب:')), 0)
-        
         if lyrics and len(options) == 4 and 1 <= correct <= 4:
             return {"lyrics": lyrics, "options": options, "correct": correct}
     except: pass
     return None
 
 def generate_quick_word():
-    """توليد كلمة سريعة"""
-    prompt = """أنشئ كلمة عربية قصيرة (3-5 أحرف) سهلة.
-
+    prompt = """كلمة عربية قصيرة (3-5 أحرف).
 الصيغة: الكلمة: [كلمة]
-
 مثال: الكلمة: نور"""
-    
     result = ai_call(prompt)
     if result:
         try:
@@ -228,34 +198,28 @@ def generate_quick_word():
     return "سريع"
 
 def analyze_personality_test(test_name, answers):
-    """تحليل شخصية شامل"""
-    prompt = f"""أنت خبير نفسي. حلل شخصية بناءً على:
+    prompt = f"""حلل شخصية بناءً على:
 
 الاختبار: {test_name}
 الإجابات: {', '.join(answers)}
 
-قدم تحليلاً شاملاً (1000-1500 كلمة) يتضمن:
+قدم تحليلاً شاملاً (1000-1500 كلمة):
 
 🧠 نظرة عامة (150 كلمة)
-💭 التفكير والقرارات (150 كلمة)
-❤️ الجانب العاطفي (150 كلمة)
+💭 التفكير (150 كلمة)
+❤️ العاطفي (150 كلمة)
 🤝 العلاقات (150 كلمة)
-💪 نقاط القوة (5-7 نقاط)
-⚠️ التطوير (بإيجابية)
-🎯 نصيحة ذهبية
+💪 نقاط القوة (5-7)
+⚠️ التطوير
+🎯 نصيحة
 
-شروط: عميق، احترافي، إيجابي، مخصص، عربي راقي
-
-ابدأ مباشرة بدون مقدمات."""
+شروط: عميق، احترافي، إيجابي، عربي راقي"""
     
-    return ai_call(prompt) or "عذراً، حدث خطأ في التحليل."
+    return ai_call(prompt) or "عذراً، خطأ في التحليل."
 
 def calculate_compatibility(type_comp, item1, item2):
-    """حساب توافق"""
     if type_comp == "names":
-        prompt = f"""حلل التوافق بين الاسمين: {item1} و {item2}
-
-قدم تحليلاً مفصلاً:
+        prompt = f"""حلل التوافق بين: {item1} و {item2}
 
 💕 نسبة التوافق: X%
 📊 تحليل الطاقة
@@ -265,38 +229,34 @@ def calculate_compatibility(type_comp, item1, item2):
 ⚠️ التحديات
 🎯 نصائح
 
-ملاحظة: للترفيه فقط"""
+للترفيه فقط"""
     else:
-        prompt = f"""حلل التوافق الفلكي بين: {item1} و {item2}
+        prompt = f"""حلل التوافق الفلكي: {item1} و {item2}
 
 ♈ نسبة التوافق: X%
-❤️ التوافق العاطفي: X%
-🤝 التوافق الاجتماعي: X%
-💼 التوافق المهني: X%
+❤️ العاطفي: X%
+🤝 الاجتماعي: X%
+💼 المهني: X%
 🔥 نقاط القوة
 ⚠️ التحديات
-🌟 تأثير العناصر
-🎯 نصائح فلكية"""
+🎯 نصائح"""
     
-    return ai_call(prompt) or "عذراً، حدث خطأ."
+    return ai_call(prompt) or "عذراً، خطأ."
 
 def chat_with_ai(msg, hist):
-    """محادثة ذكية"""
     ctx = "\n".join([f"المستخدم: {h['u']}\nالمساعد: {h['a']}" for h in hist[-5:]])
-    prompt = f"""أنت مساعد ذكي عربي اسمك "المساعد الذكي".
+    prompt = f"""أنت مساعد ذكي عربي.
 
-المحادثات السابقة:
+المحادثات:
 {ctx}
 
 المستخدم: {msg}
 
-قواعد: ودود، محترم، مفيد، عربي بسيط، مباشر، مختصر (3-7 أسطر)
+قواعد: ودود، محترم، مختصر (3-7 أسطر)
 
-رد الآن:"""
+رد:"""
     
-    return ai_call(prompt) or "عذراً، لم أتمكن من الرد."
-
-# ==================== Routes ====================
+    return ai_call(prompt) or "عذراً، خطأ."
 
 @app.route("/", methods=['GET'])
 def home(): return "✅ البوت يعمل! 🤖"
@@ -311,8 +271,6 @@ def callback():
     except Exception as e: print(f"Error: {e}")
     return 'OK'
 
-# ==================== معالج الرسائل ====================
-
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(ev):
     uid = ev.source.user_id
@@ -320,87 +278,77 @@ def handle_message(ev):
     sid = get_session_id(ev)
     data = get_user_data(uid)
     
-    # منع الروابط
     if re.search(r'http[s]?://', txt):
         data['links'] += 1
         if data['links'] >= 2:
-            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ يرجى عدم إرسال الروابط"))
+            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ لا روابط"))
         return
     
-    # إيقاف
-    if txt in ["ايقاف", "إيقاف", "stop", "الغاء", "إلغاء"]:
+    if txt in ["ايقاف", "إيقاف", "stop"]:
         if sid in game_sessions: del game_sessions[sid]
         data['mode'] = None
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏹️ تم الإيقاف"))
     
-    # المساعدة
     if txt in ["مساعدة", "مساعده", "help"]:
-        help_txt = """🤖 البوت الذكي - القائمة
+        help_txt = """🤖 القائمة
 
-🧠 اختبارات الشخصية:
-• اختبار الغابة | اختبار الجزيرة
-• اختبار الألوان | اختبار الأبواب
-• اختبار المحيط | اختبار المرآة
-• اختبار القلعة | اختبار النجوم
+🧠 اختبارات:
+• اختبار الغابة | الجزيرة
+• الألوان | الأبواب | المحيط
+• المرآة | القلعة | النجوم
 
 💕 التوافق:
-• توافق الأسماء | توافق الأبراج
+• توافق الأسماء | الأبراج
 
 🎮 الألعاب:
-• لغز | خمن المثل | ترتيب الحروف
-• سؤال عام | خمن المغني
+• لغز | خمن المثل | ترتيب
+• سؤال | خمن المغني
 • كلمة سريعة | الكلمة الأخيرة
 
-🏆 النقاط:
-• نقاطي | المتصدرين
+🏆 نقاطي | المتصدرين
+💬 ايقاف | جاوب
 
-💬 أخرى:
-• محادثة حرة | ايقاف | جاوب
-
-✨ جميع الألعاب بالذكاء الاصطناعي!"""
+✨ بالذكاء الاصطناعي!"""
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=help_txt))
     
-    # اختبار الغابة
     if txt in ["اختبار الغابة", "الغابة"]:
         data['mode'] = 'forest'
         data['q'] = 0
         data['ans'] = []
         data['data']['questions'] = [
-            "🌲 تمشي في غابة... كيف الأشجار؟\n\n1. منظمة\n2. عشوائية\n3. مختلطة\n4. كثيفة",
-            "🌅 ما الوقت؟\n\n1. نهار\n2. ليل\n3. غروب\n4. فجر",
-            "🛤️ المسار؟\n\n1. واسع\n2. ضيق\n3. متوسط\n4. غير واضح",
-            "🔑 ترى مفتاحاً...\n\n1. جديد\n2. قديم\n3. ذهبي\n4. عادي",
-            "🔑 ماذا تفعل؟\n\n1. آخذه\n2. أتركه\n3. أفكر\n4. أنظر",
-            "🐻 دب يظهر...\n\n1. ودود\n2. عدواني\n3. محايد\n4. خائف",
-            "🐻 حجم الدب؟\n\n1. كبير\n2. متوسط\n3. صغير\n4. عملاق",
-            "🏺 جرة... مما؟\n\n1. خشب\n2. فخار\n3. زجاج\n4. معدن",
-            "🏺 بداخلها؟\n\n1. ماء\n2. كنز\n3. فارغة\n4. رسائل",
-            "🏠 منزل...\n\n1. قصر\n2. كوخ\n3. عادي\n4. قلعة",
-            "🚪 رجل يصرخ!\n\n1. أفتح\n2. لن أفتح\n3. أسأل\n4. أبحث",
-            "⬜ كل شيء أبيض!\n\n1. أستسلم\n2. أستمر\n3. أصرخ\n4. أفكر"
+            "🌲 الأشجار؟\n1. منظمة\n2. عشوائية\n3. مختلطة\n4. كثيفة",
+            "🌅 الوقت؟\n1. نهار\n2. ليل\n3. غروب\n4. فجر",
+            "🛤️ المسار؟\n1. واسع\n2. ضيق\n3. متوسط\n4. غير واضح",
+            "🔑 مفتاح؟\n1. جديد\n2. قديم\n3. ذهبي\n4. عادي",
+            "🔑 ماذا تفعل؟\n1. آخذه\n2. أتركه\n3. أفكر\n4. أنظر",
+            "🐻 دب؟\n1. ودود\n2. عدواني\n3. محايد\n4. خائف",
+            "🐻 الحجم؟\n1. كبير\n2. متوسط\n3. صغير\n4. عملاق",
+            "🏺 جرة؟\n1. خشب\n2. فخار\n3. زجاج\n4. معدن",
+            "🏺 بداخلها؟\n1. ماء\n2. كنز\n3. فارغة\n4. رسائل",
+            "🏠 منزل؟\n1. قصر\n2. كوخ\n3. عادي\n4. قلعة",
+            "🚪 رجل يصرخ!\n1. أفتح\n2. لا\n3. أسأل\n4. أبحث",
+            "⬜ أبيض!\n1. أستسلم\n2. أستمر\n3. أصرخ\n4. أفكر"
         ]
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"{data['data']['questions'][0]}\n\n📍 1/12"))
     
-    # اختبار الجزيرة
     if txt in ["اختبار الجزيرة", "الجزيرة"]:
         data['mode'] = 'island'
         data['q'] = 0
         data['ans'] = []
         data['data']['questions'] = [
-            "🏝️ جزيرة... ماذا تبحث؟\n\n1. ماء\n2. مأوى\n3. هروب\n4. أشخاص",
-            "🌴 شجرة...\n\n1. أتسلق\n2. أستريح\n3. أبحث\n4. أتجاهل",
-            "📦 صندوق...\n\n1. أدوات\n2. كنز\n3. خريطة\n4. رسالة",
-            "🌊 أمواج...\n\n1. هدوء\n2. خوف\n3. حماس\n4. حزن",
-            "🔥 نار... كيف؟\n\n1. أحجار\n2. عصي\n3. أنتظر\n4. عدسة",
-            "🐚 محارة...\n\n1. وعاء\n2. تذكار\n3. لؤلؤة\n4. أتركها",
-            "🌙 الليل...\n\n1. أنام\n2. حذر\n3. نجوم\n4. صيد",
-            "🦜 طيور...\n\n1. أتبعها\n2. أصطادها\n3. أستمتع\n4. الريش",
-            "⛵ قارب...\n\n1. أصلح\n2. مأوى\n3. أبحث\n4. أترك",
-            "🆘 إنقاذ!\n\n1. نار\n2. أصرخ\n3. SOS\n4. أفكر"
+            "🏝️ تبحث؟\n1. ماء\n2. مأوى\n3. هروب\n4. أشخاص",
+            "🌴 شجرة؟\n1. أتسلق\n2. أستريح\n3. أبحث\n4. أتجاهل",
+            "📦 صندوق؟\n1. أدوات\n2. كنز\n3. خريطة\n4. رسالة",
+            "🌊 أمواج؟\n1. هدوء\n2. خوف\n3. حماس\n4. حزن",
+            "🔥 نار؟\n1. أحجار\n2. عصي\n3. أنتظر\n4. عدسة",
+            "🐚 محارة؟\n1. وعاء\n2. تذكار\n3. لؤلؤة\n4. أترك",
+            "🌙 الليل؟\n1. أنام\n2. حذر\n3. نجوم\n4. صيد",
+            "🦜 طيور؟\n1. أتبع\n2. أصطاد\n3. أستمتع\n4. ريش",
+            "⛵ قارب؟\n1. أصلح\n2. مأوى\n3. أبحث\n4. أترك",
+            "🆘 إنقاذ!\n1. نار\n2. أصرخ\n3. SOS\n4. أفكر"
         ]
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"{data['data']['questions'][0]}\n\n📍 1/10"))
     
-    # اختبارات مختصرة
     tests = {
         "اختبار الألوان": ("colors", 5), "اختبار الأبواب": ("doors", 10),
         "اختبار المحيط": ("ocean", 8), "اختبار المرآة": ("mirror", 7),
@@ -414,7 +362,6 @@ def handle_message(ev):
             data['ans'] = []
             return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"{test_name}\n\nسؤال 1\n\n1. خيار\n2. خيار\n3. خيار\n4. خيار\n\n📍 1/{count}"))
     
-    # إجابات الاختبارات
     if data['mode'] in ['forest', 'island', 'colors', 'doors', 'ocean', 'mirror', 'castle', 'stars'] and txt in ['1','2','3','4']:
         data['ans'].append(txt)
         data['q'] += 1
@@ -449,7 +396,6 @@ def handle_message(ev):
         
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=msg))
     
-    # توافق الأسماء
     if txt in ["توافق الأسماء", "الأسماء"]:
         data['mode'] = 'name_comp'
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="💕 التوافق\n\nاكتب اسمين:\nمثال: محمد، فاطمة"))
@@ -458,13 +404,12 @@ def handle_message(ev):
         names = re.split('[,،]', txt)
         if len(names) == 2:
             n1, n2 = names[0].strip(), names[1].strip()
-            line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري الحساب... 💕"))
+            line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري... 💕"))
             comp = calculate_compatibility("names", n1, n2)
             line_bot_api.push_message(uid, TextSendMessage(text=f"💕 {n1} و {n2}\n\n{comp}\n\n✨ للترفيه"))
             data['mode'] = None
             return
     
-    # توافق الأبراج
     if txt in ["توافق الأبراج", "الأبراج"]:
         data['mode'] = 'zodiac_comp'
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="♈ التوافق\n\nبرجين:\nالحمل، الثور، الجوزاء، السرطان\nالأسد، العذراء، الميزان، العقرب\nالقوس، الجدي، الدلو، الحوت\n\nمثال: الأسد، الحمل"))
@@ -473,19 +418,35 @@ def handle_message(ev):
         signs = re.split('[,،]', txt)
         if len(signs) == 2:
             s1, s2 = signs[0].strip(), signs[1].strip()
-            line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري الحساب... ♈"))
+            line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري... ♈"))
             comp = calculate_compatibility("zodiac", s1, s2)
             line_bot_api.push_message(uid, TextSendMessage(text=f"♈ {s1} و {s2}\n\n{comp}\n\n✨ للمتعة"))
             data['mode'] = None
             return
     
-    # الألعاب
     if txt in ["لغز", "الغاز"]:
-        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد لغز... 🧩"))
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🧩"))
         riddle = generate_riddle()
         if riddle:
             game_sessions[sid] = {"type": "riddle", "data": riddle, "hint_used": False}
-            line_bot_api.push_message(uid, TextSendMessage(text=f"🧩 لغز\n\n{riddle['riddle']}\n\n💡 تلميح | ❌ جاوب\n🎯 15/10 نقطة"))
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🧩 لغز\n\n{riddle['riddle']}\n\n💡 تلميح | ❌ جاوب\n🎯 15/10"))
+        else:
+            line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
+        return
+    
+    if txt in ["تلميح", "hint"] and sid in game_sessions and game_sessions[sid]["type"] == "riddle":
+        g = game_sessions[sid]
+        if g["hint_used"]:
+            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ استخدم"))
+        g["hint_used"] = True
+        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"💡 {g['data']['hint']}"))
+    
+    if txt in ["خمن المثل", "المثل"]:
+        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🎭"))
+        proverb = generate_proverb()
+        if proverb:
+            game_sessions[sid] = {"type": "proverb", "data": proverb}
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🎭 خمن\n\n{proverb['emoji']}\n\n✍️ اكتب\n🎯 20"))
         else:
             line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
         return
@@ -495,7 +456,7 @@ def handle_message(ev):
         word_data = generate_scrambled_word()
         if word_data:
             game_sessions[sid] = {"type": "letter_sort", "data": word_data}
-            line_bot_api.push_message(uid, TextSendMessage(text=f"🔀 رتب\n\n{word_data['scrambled']}\n\n✍️ اكتب الكلمة\n🎯 15 نقطة"))
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🔀 رتب\n\n{word_data['scrambled']}\n\n✍️ اكتب\n🎯 15"))
         else:
             line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
         return
@@ -506,7 +467,7 @@ def handle_message(ev):
         if trivia:
             game_sessions[sid] = {"type": "trivia", "data": trivia}
             opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(trivia['options'])])
-            line_bot_api.push_message(uid, TextSendMessage(text=f"❓ سؤال\n\n{trivia['q']}\n\n{opts}\n\n📝 رقم (1-4)\n🎯 15 نقطة"))
+            line_bot_api.push_message(uid, TextSendMessage(text=f"❓ سؤال\n\n{trivia['q']}\n\n{opts}\n\n📝 رقم\n🎯 15"))
         else:
             line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
         return
@@ -517,7 +478,7 @@ def handle_message(ev):
         if singer:
             game_sessions[sid] = {"type": "singer", "data": singer}
             opts = "\n".join([f"{i+1}. {o}" for i, o in enumerate(singer['options'])])
-            line_bot_api.push_message(uid, TextSendMessage(text=f"🎵 خمن\n\n\"{singer['lyrics']}\"\n\n{opts}\n\n📝 رقم (1-4)\n🎯 20 نقطة"))
+            line_bot_api.push_message(uid, TextSendMessage(text=f"🎵 خمن\n\n\"{singer['lyrics']}\"\n\n{opts}\n\n📝 رقم\n🎯 20"))
         else:
             line_bot_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
         return
@@ -526,7 +487,7 @@ def handle_message(ev):
         line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ جاري... 🏃"))
         word = generate_quick_word()
         game_sessions[sid] = {"type": "quick_word", "word": word, "start": datetime.now(), "winner": None}
-        line_bot_api.push_message(uid, TextSendMessage(text=f"🏃 سريعة\n\n⚡ اكتب:\n{word}\n\n🎯 20 نقطة"))
+        line_bot_api.push_message(uid, TextSendMessage(text=f"🏃 سريعة\n\n⚡ اكتب:\n{word}\n\n🎯 20"))
         return
     
     if txt in ["الكلمة الأخيرة", "كلمة اخيرة"]:
@@ -562,7 +523,6 @@ def handle_message(ev):
         lb = "🏆 المتصدرين\n\n" + "\n".join([f"{medals[i]} {n}: {s}" for i, (n, s) in enumerate(sorted_scores)])
         return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=lb))
     
-    # معالجة الإجابات
     if sid in game_sessions:
         g = game_sessions[sid]
         
@@ -650,7 +610,6 @@ def handle_message(ev):
                 remaining = g["max"] - g["count"]
                 return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"✅ {word}\n\n👤 {pn} (+10)\n🔤 التالي: {g['letter']}\n📝 {g['count']}/{g['max']} ({remaining} متبقية)"))
     
-    # محادثة AI
     ai_resp = chat_with_ai(txt, data['hist'])
     data['hist'].append({'u': txt, 'a': ai_resp})
     if len(data['hist']) > 10: 
@@ -659,4 +618,4 @@ def handle_message(ev):
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)_api.push_message(uid, TextSendMessage(text="عذراً، 
+    app.run(host='0.0.0.0', port=port, debug=False)
