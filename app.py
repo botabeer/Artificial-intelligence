@@ -659,21 +659,4 @@ def handle_message(ev):
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)_api.push_message(uid, TextSendMessage(text="عذراً، خطأ"))
-        return
-    
-    if txt in ["تلميح", "hint"] and sid in game_sessions and game_sessions[sid]["type"] == "riddle":
-        g = game_sessions[sid]
-        if g["hint_used"]:
-            return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⚠️ تم استخدامه"))
-        g["hint_used"] = True
-        return line_bot_api.reply_message(ev.reply_token, TextSendMessage(text=f"💡 {g['data']['hint']}"))
-    
-    if txt in ["خمن المثل", "المثل"]:
-        line_bot_api.reply_message(ev.reply_token, TextSendMessage(text="⏳ توليد... 🎭"))
-        proverb = generate_proverb()
-        if proverb:
-            game_sessions[sid] = {"type": "proverb", "data": proverb}
-            line_bot_api.push_message(uid, TextSendMessage(text=f"🎭 خمن\n\n{proverb['emoji']}\n\n✍️ اكتب المثل\n🎯 20 نقطة"))
-        else:
-            line_bot
+    app.run(host='0.0.0.0', port=port, debug=False)_api.push_message(uid, TextSendMessage(text="عذراً، 
