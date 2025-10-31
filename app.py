@@ -1,96 +1,118 @@
 import os
 from flask import Flask, request, jsonify
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from dotenv import load_dotenv
+import openai
+import google.generativeai as genai
 
-# تحميل المتغيرات البيئية إذا كنت تستخدم محليًا
+# تحميل المتغيرات البيئية
 load_dotenv()
-
-# التحقق من المتغيرات البيئية
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
-PORT = int(os.environ.get("PORT", 5000))
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
 
-if not OPENAI_API_KEY or not GENAI_API_KEY:
-    raise ValueError("يجب تعيين جميع المتغيرات البيئية في إعدادات Render (OPENAI_API_KEY و GENAI_API_KEY)")
+if not all([OPENAI_API_KEY, GENAI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET]):
+    raise ValueError("يجب تعيين جميع المتغيرات البيئية في ملف .env أو Render")
 
-import openai
-from google.generativeai import client as genai_client
-
-# إعداد تطبيق Flask
-app = Flask(__name__)
-
-# تهيئة نماذج AI
 openai.api_key = OPENAI_API_KEY
-genai_client.configure(api_key=GENAI_API_KEY)
+genai.configure(api_key=GENAI_API_KEY)
 
-# رسالة المساعدة
-HELP_MESSAGE = """
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
+
+app = Flask(__name__)
+port = int(os.environ.get("PORT", 5000))
+
+# دالة لتوليد الردود من OpenAI
+def generate_text(prompt, model="gpt-4"):
+    response = openai.ChatCompletion.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=1000
+    )
+    return response.choices[0].message.content.strip()
+
+# أوامر مساعدة البوت
+HELP_TEXT = """
 أوامر البوت المتاحة:
-1. مساعدة → عرض هذه الرسالة
-2. تعلم الإنجليزية → تعليم بطريقة لعبة
-3. فضفضة → التحدث عن المشاعر والحصول على حلول
-4. توليد صور → إنشاء صور للكانفا أو مواقع AI
-5. توليد فيديو → إنشاء فيديوهات بالذكاء الاصطناعي
-6. كتابة كود → كتابة وتصحيح الأكواد
-7. شرائح عرض → إنشاء عروض تقديمية
-8. ملخص واجبات → ملخصات وحلول للواجبات حسب المادة والصف
+
+1. مساعدة => عرض كل الأوامر.
+2. تعلم الإنجليزية => لعبة تعليمية للأطفال.
+3. فضفضة => فضفضة المشاعر مع حلول.
+4. صورة AI <وصف> => توليد صورة بالذكاء الاصطناعي.
+5. فيديو AI <وصف> => توليد فيديو بالذكاء الاصطناعي.
+6. عرض تقديمي <موضوع> => إنشاء شرائح عرض جاهزة.
+7. كود <طلب الكود أو التصحيح> => كتابة أو تصحيح الأكواد.
+8. أمر AI <الوصف> => إنشاء أي محتوى شامل (صور، فيديو، كتب، عروض).
+9. حل واجب <المادة> <الصف> <السؤال> => حل الواجبات والاختبارات.
+10. إنشاء أمر <الوصف> => يكتب لك أي أمر جديد احترافي.
 """
 
-@app.route("/bot", methods=["POST"])
-def bot():
-    data = request.json
-    user_message = data.get("message", "").strip()
+# نقطة النهاية لتلقي رسائل LINE
+@app.route("/callback", methods=['POST'])
+def callback():
+    signature = request.headers.get("X-Line-Signature", "")
+    body = request.get_data(as_text=True)
 
-    # أمر المساعدة
-    if user_message.lower() == "مساعدة":
-        return jsonify({"reply": HELP_MESSAGE})
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        return "Invalid signature", 400
 
-    # تعلم الإنجليزية بطريقة لعبة
-    elif "تعلم الإنجليزية" in user_message:
-        reply = "لنبدأ لعبة تعليم الإنجليزية! 🎮\nاكتب كلمة وسأعلمك معناها بطريقة ممتعة."
-        return jsonify({"reply": reply})
+    return "OK", 200
 
-    # فضفضة المشاعر
-    elif "فضفضة" in user_message:
-        reply = "حدثني عن مشاعرك وسأقدم لك نصائح وحلول تساعدك على الشعور الأفضل 🌟"
-        return jsonify({"reply": reply})
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    text = event.message.text.strip()
 
-    # توليد صور
-    elif "صورة" in user_message:
-        # مثال: يمكن توليد أمر للكانفا أو AI
-        prompt = user_message.replace("صورة", "").strip()
-        reply = f"تم إنشاء صورة بالذكاء الاصطناعي بناءً على الوصف: {prompt} 🎨"
-        return jsonify({"reply": reply})
+    if text.lower() == "مساعدة":
+        reply = HELP_TEXT
 
-    # توليد فيديو
-    elif "فيديو" in user_message:
-        prompt = user_message.replace("فيديو", "").strip()
-        reply = f"تم إنشاء فيديو بالذكاء الاصطناعي بناءً على الوصف: {prompt} 🎬"
-        return jsonify({"reply": reply})
+    elif text.lower() == "تعلم الإنجليزية":
+        reply = "لنبدأ لعبة تعليمية ممتعة لتعلم الإنجليزية! 🌟\nاكتب كلمة أو حرف لتتعلم معنا."
 
-    # كتابة وتصحيح الأكواد
-    elif "كود" in user_message:
-        reply = "يمكنني مساعدتك في كتابة الأكواد أو تصحيحها. أرسل لي الكود الذي تريد العمل عليه."
-        return jsonify({"reply": reply})
+    elif text.lower() == "فضفضة":
+        reply = "فضفض عما يزعجك، وسأعطيك نصائح ودية ومساعدة لفهم مشاعرك 💬."
 
-    # إنشاء شرائح عرض
-    elif "عرض" in user_message:
-        reply = "يمكنني إنشاء عرض تقديمي لك بالكانفا أو AI. ارسل لي الفكرة أو المحتوى."
-        return jsonify({"reply": reply})
+    elif text.startswith("صورة AI"):
+        prompt = text.replace("صورة AI", "").strip()
+        reply = f"جارٍ توليد صورة AI للموضوع: {prompt} ..."
 
-    # ملخصات واجبات
-    elif "واجب" in user_message:
-        reply = f"تم استخراج ملخص وحلول للواجب: {user_message} 📚"
-        return jsonify({"reply": reply})
+    elif text.startswith("فيديو AI"):
+        prompt = text.replace("فيديو AI", "").strip()
+        reply = f"جارٍ توليد فيديو AI للموضوع: {prompt} ..."
 
-    # أوامر إنشاء حرف الجيم بطابع ديزني
-    elif "حرف الجيم" in user_message:
-        reply = "تم إنشاء أمر احترافي لتوليد حرف الجيم بطابع ديزني شامل للكتب، الصور، الفيديو، والعروض التقديمية."
-        return jsonify({"reply": reply})
+    elif text.startswith("عرض تقديمي"):
+        topic = text.replace("عرض تقديمي", "").strip()
+        reply = f"جارٍ إنشاء عرض تقديمي عن: {topic} ..."
+
+    elif text.startswith("كود"):
+        code_request = text.replace("كود", "").strip()
+        ai_response = generate_text(f"اكتب أو صحح الكود التالي: {code_request}")
+        reply = ai_response
+
+    elif text.startswith("أمر AI"):
+        desc = text.replace("أمر AI", "").strip()
+        ai_response = generate_text(f"اكتب أمر احترافي لإنشاء محتوى: {desc}")
+        reply = ai_response
+
+    elif text.startswith("حل واجب"):
+        details = text.replace("حل واجب", "").strip()
+        reply = f"جارٍ جلب حل الواجب: {details} من مواقع واجباتي ومادتي ..."
+
+    elif text.startswith("إنشاء أمر"):
+        desc = text.replace("إنشاء أمر", "").strip()
+        ai_response = generate_text(f"اكتب أمر احترافي لاستخدامه في أي منصة AI: {desc}")
+        reply = ai_response
 
     else:
-        reply = "عذراً، لم أفهم الأمر. اكتب 'مساعدة' لرؤية جميع الأوامر المتاحة."
-        return jsonify({"reply": reply})
+        reply = generate_text(f"أجب على هذا النص: {text}")
+
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    app.run(host="0.0.0.0", port=port)
