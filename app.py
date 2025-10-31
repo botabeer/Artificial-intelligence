@@ -1,13 +1,14 @@
-import os
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
+import os
 import openai
 import google.generativeai as genai
 
-# تحميل متغيرات البيئة
 load_dotenv()
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GENAI_API_KEY = os.getenv("GENAI_API_KEY")
+PORT = int(os.getenv("PORT", 5000))
 
 if not OPENAI_API_KEY or not GENAI_API_KEY:
     raise ValueError("يجب تعيين جميع المتغيرات البيئية في ملف .env")
@@ -17,109 +18,96 @@ genai.configure(api_key=GENAI_API_KEY)
 
 app = Flask(__name__)
 
-# قائمة الأوامر
-COMMANDS = {
-    "help / مساعدة": "عرض جميع أوامر البوت",
-    "learn_english": "ابدأ لعبة تعلم الإنجليزية بطريقة سهلة وممتعة",
-    "vent": "فضفض لي شعورك، سأستمع لك وأعطيك حلول عملية",
-    "create_image <وصف>": "إنشاء صورة بالذكاء الاصطناعي",
-    "create_video <وصف>": "إنشاء فيديو قصير بالذكاء الاصطناعي",
-    "create_code <وصف أو كود>": "كتابة أو تصحيح أكواد",
-    "create_ppt <عنوان أو فكرة>": "إنشاء شرائح عرض أو نصوص جاهزة",
-    "canva_assist": "تسهيلات لإنشاء تصاميم Canva تعليمية أو مرئية"
-}
+# قائمة نماذج OpenAI لتجنب خطأ 404
+available_models = openai.Model.list()
+model_id = next(iter(available_models.data), None)
+model_id = model_id.id if model_id else "gpt-5"
 
-# حالة المستخدمين للألعاب والمهام
-user_states = {}
+# الأوامر المساعدة
+HELP_MESSAGE = """
+أوامر البوت المتاحة:
+1. مساعدة => عرض هذه الرسالة
+2. تعلم <موضوع> => تعلم الإنجليزية بطريقة لعبة ممتعة
+3. فضفضة <مشاعرك> => يرد على مشاعرك ويعطي حلول
+4. انشئ <موضوع> => يولد وصف جاهز لإنشاء صور أو فيديو أو عرض تقديمي على Canva أو مواقع AI
+5. كود <طلبك> => يكتب لك كود برمجي أو يصححه
+6. صورة <وصف> => ينشئ صورة بالذكاء الاصطناعي
+7. فيديو <وصف> => يولد فيديو قصير بالذكاء الاصطناعي
+"""
 
-# لعبة تعلم الإنجليزية
-ENGLISH_WORDS = ["apple", "book", "cat", "dog", "sun", "moon"]
-def start_english_game(user_id):
-    import random
-    word = random.choice(ENGLISH_WORDS)
-    user_states[user_id] = {"game": "english", "word": word}
-    return f"هيا نبدأ لعبة الإنجليزية! حاول كتابة ترجمة الكلمة التالية: **{word}**"
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    message = data.get("message", "").strip()
 
-def check_english_answer(user_id, answer):
-    correct_word = user_states[user_id]["word"]
-    if answer.lower() == correct_word.lower():
-        user_states.pop(user_id)
-        return f"صحيح! 🎉 الكلمة كانت **{correct_word}**. تريد تجربة كلمة جديدة؟ اكتب learn_english"
+    if not message:
+        return jsonify({"response": "الرجاء إرسال رسالة صحيحة."})
+
+    # أمر المساعدة
+    if message.lower() == "مساعدة":
+        return jsonify({"response": HELP_MESSAGE})
+
+    # تعلم الإنجليزية بطريقة لعبة
+    elif message.lower().startswith("تعلم "):
+        topic = message[5:]
+        prompt = f"ابتكر درس لغة إنجليزية للأطفال حول {topic} بطريقة لعبة ممتعة وسهلة الفهم، مع أمثلة وألوان جذابة وشخصيات كرتونية."
+        completion = openai.ChatCompletion.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return jsonify({"response": completion.choices[0].message["content"]})
+
+    # فضفضة المشاعر وحلول
+    elif message.lower().startswith("فضفضة "):
+        feelings = message[6:]
+        prompt = f"استمع لمشاعر المستخدم: {feelings}، وقدم له نصائح وحلول بطريقة لطيفة ومشجعة."
+        completion = openai.ChatCompletion.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return jsonify({"response": completion.choices[0].message["content"]})
+
+    # إنشاء أوامر جاهزة للصور، الفيديو، Canva
+    elif message.lower().startswith("انشئ "):
+        topic = message[5:]
+        prompt = f"اكتب وصف جاهز لتوليد محتوى على Canva أو مواقع الذكاء الاصطناعي: صور، فيديوهات تعليمية، عروض تعليمية، مع اقتراح ألوان، نصوص، رسوم متحركة، حول الموضوع: {topic}"
+        completion = openai.ChatCompletion.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return jsonify({"response": completion.choices[0].message["content"]})
+
+    # كتابة أو تصحيح الكود
+    elif message.lower().startswith("كود "):
+        request_text = message[4:]
+        prompt = f"اكتب أو صحح كود برمجي حسب هذا الطلب: {request_text}"
+        completion = openai.ChatCompletion.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return jsonify({"response": completion.choices[0].message["content"]})
+
+    # إنشاء صورة بالذكاء الاصطناعي
+    elif message.lower().startswith("صورة "):
+        description = message[5:]
+        try:
+            image = genai.Image.create(prompt=description, size="1024x1024")
+            return jsonify({"response": image.url})
+        except Exception as e:
+            return jsonify({"response": f"حدث خطأ أثناء إنشاء الصورة: {str(e)}"})
+
+    # إنشاء فيديو بالذكاء الاصطناعي (نص قصير => فيديو)
+    elif message.lower().startswith("فيديو "):
+        description = message[6:]
+        prompt = f"اصنع سيناريو فيديو قصير وتعليمات لإنشائه بالذكاء الاصطناعي حول: {description}"
+        completion = openai.ChatCompletion.create(
+            model=model_id,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return jsonify({"response": completion.choices[0].message["content"]})
+
     else:
-        return f"حاول مرة أخرى! الكلمة كانت: **{correct_word}**"
-
-# معالجة الأوامر
-def process_command(user_id, text):
-    text_lower = text.lower()
-
-    if text_lower in ["help", "مساعدة"]:
-        return "\n".join([f"{cmd} - {desc}" for cmd, desc in COMMANDS.items()])
-
-    state = user_states.get(user_id)
-    if state and state.get("game") == "english":
-        return check_english_answer(user_id, text)
-
-    elif text_lower == "learn_english":
-        return start_english_game(user_id)
-
-    elif text_lower == "vent":
-        return "فضفض لي شعورك، سأستمع لك وأعطيك نصائح وحلول عملية."
-
-    elif text_lower.startswith("create_image"):
-        prompt = text.replace("create_image", "").strip()
-        if not prompt:
-            return "أرسل وصف الصورة بعد الأمر create_image"
-        result = genai.generate_image(prompt=prompt, model="image-alpha-001", size="1024x1024")
-        return f"تم إنشاء الصورة: {getattr(result, 'url', 'تم الإنشاء')}"
-
-    elif text_lower.startswith("create_video"):
-        prompt = text.replace("create_video", "").strip()
-        if not prompt:
-            return "أرسل وصف الفيديو بعد الأمر create_video"
-        video_result = genai.generate_video(
-            model="video-beta-001",
-            prompt=prompt,
-            resolution="720p",
-            length="10s"
-        )
-        return f"تم إنشاء الفيديو: {getattr(video_result, 'url', 'تم الإنشاء')}"
-
-    elif text_lower.startswith("create_code"):
-        code_prompt = text.replace("create_code", "").strip()
-        if not code_prompt:
-            return "أرسل الكود أو الوصف بعد الأمر create_code"
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": code_prompt}]
-        )
-        return response['choices'][0]['message']['content']
-
-    elif text_lower.startswith("create_ppt"):
-        return "أرسل لي عنوان الشرائح أو فكرة الفيديو، وسأجهز لك أفكار الشرائح والنصوص المناسبة."
-
-    elif text_lower.startswith("canva_assist"):
-        return "يمكنك طلب تصاميم جاهزة لـ Canva: عروض تعليمية، صور تعليمية، فيديوهات قصيرة، أو أي تصميم بسرعة وسهولة."
-
-    else:
-        # أي نص آخر يستخدم OpenAI للتفاعل
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": text}]
-        )
-        return response['choices'][0]['message']['content']
-
-# مسار استقبال الرسائل
-@app.route("/message", methods=["POST"])
-def receive_message():
-    data = request.json
-    user_id = data.get("user_id")
-    text = data.get("text")
-
-    if not user_id or not text:
-        return jsonify({"error": "يجب إرسال user_id و text"}), 400
-
-    reply = process_command(user_id, text)
-    return jsonify({"reply": reply})
+        return jsonify({"response": "آسف، لم أفهم الرسالة. اكتب 'مساعدة' لمعرفة الأوامر."})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=PORT)
