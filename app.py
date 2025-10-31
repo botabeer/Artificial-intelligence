@@ -1,128 +1,125 @@
-# app.py
-from flask import Flask, request, jsonify
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import openai
 import os
+from flask import Flask, request, jsonify
 from dotenv import load_dotenv
+import openai
+import google.generativeai as genai
 
-# تحميل المتغيرات البيئية
+# تحميل متغيرات البيئة
 load_dotenv()
-
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GENAI_API_KEY = os.getenv("GENAI_API_KEY")
 
-if not LINE_CHANNEL_SECRET or not LINE_CHANNEL_ACCESS_TOKEN or not OPENAI_API_KEY:
+if not OPENAI_API_KEY or not GENAI_API_KEY:
     raise ValueError("يجب تعيين جميع المتغيرات البيئية في ملف .env")
 
 openai.api_key = OPENAI_API_KEY
+genai.configure(api_key=GENAI_API_KEY)
 
 app = Flask(__name__)
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# أوامر الألعاب التعليمية والمحادثة
-def handle_english_game(user_text):
-    prompt = f"""
-    أنت معلم لغة إنجليزية لطيف ومرح، اشرح للمستخدم هذه الجملة أو الكلمة: "{user_text}" بطريقة بسيطة، 
-    مع مثال وصورة تعليمية افتراضية، وامكانية لعبة صغيرة ليتعلم الكلمة.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-    return response.choices[0].message.content
+# قائمة الأوامر
+COMMANDS = {
+    "help / مساعدة": "عرض جميع أوامر البوت",
+    "learn_english": "ابدأ لعبة تعلم الإنجليزية بطريقة سهلة وممتعة",
+    "vent": "فضفض لي شعورك، سأستمع لك وأعطيك حلول عملية",
+    "create_image <وصف>": "إنشاء صورة بالذكاء الاصطناعي",
+    "create_video <وصف>": "إنشاء فيديو قصير بالذكاء الاصطناعي",
+    "create_code <وصف أو كود>": "كتابة أو تصحيح أكواد",
+    "create_ppt <عنوان أو فكرة>": "إنشاء شرائح عرض أو نصوص جاهزة",
+    "canva_assist": "تسهيلات لإنشاء تصاميم Canva تعليمية أو مرئية"
+}
 
-# أوامر Canva وصور AI
-def handle_canva_command(command, topic):
-    prompt = f"""
-    أنت مساعد لتوليد محتوى تعليمي لـ Canva.  
-    الأمر: {command}, الموضوع: {topic}  
-    أرجو أن تولد وصف كامل لإنشاء {command} على Canva، مع صور تعليمية AI وألوان وخطوط متناسقة.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
-    return response.choices[0].message.content
+# حالة المستخدمين للألعاب والمهام
+user_states = {}
 
-# أوامر الأكواد وتصحيحها
-def handle_code_command(user_text):
-    prompt = f"""
-    أنت مساعد برمجي ذكي، نفذ هذا الطلب: "{user_text}"  
-    أو أكتب الكود المطلوب وصححه إذا كان هناك خطأ.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
-    return response.choices[0].message.content
+# لعبة تعلم الإنجليزية
+ENGLISH_WORDS = ["apple", "book", "cat", "dog", "sun", "moon"]
+def start_english_game(user_id):
+    import random
+    word = random.choice(ENGLISH_WORDS)
+    user_states[user_id] = {"game": "english", "word": word}
+    return f"هيا نبدأ لعبة الإنجليزية! حاول كتابة ترجمة الكلمة التالية: **{word}**"
 
-# فضفضة وفهم المشاعر
-def handle_emotion(user_text):
-    prompt = f"""
-    المستخدم كتب هذه الرسالة للتعبير عن مشاعره: "{user_text}"  
-    استجب بطريقة داعمة، افهم المشاعر، وقدم نصائح أو حلول بسيطة باللغة الإنجليزية أو العربية.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.8
-    )
-    return response.choices[0].message.content
+def check_english_answer(user_id, answer):
+    correct_word = user_states[user_id]["word"]
+    if answer.lower() == correct_word.lower():
+        user_states.pop(user_id)
+        return f"صحيح! 🎉 الكلمة كانت **{correct_word}**. تريد تجربة كلمة جديدة؟ اكتب learn_english"
+    else:
+        return f"حاول مرة أخرى! الكلمة كانت: **{correct_word}**"
 
-# LINE Webhook
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers['X-Line-Signature']
-    body = request.get_data(as_text=True)
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        return 'Invalid signature', 400
-    return 'OK'
+# معالجة الأوامر
+def process_command(user_id, text):
+    text_lower = text.lower()
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_text = event.message.text.lower()
-    reply = "آسف، لم أفهم الأمر."
+    if text_lower in ["help", "مساعدة"]:
+        return "\n".join([f"{cmd} - {desc}" for cmd, desc in COMMANDS.items()])
 
-    if user_text.startswith("تعلم كلمة"):
-        word = user_text.replace("تعلم كلمة", "").strip()
-        reply = handle_english_game(word)
+    state = user_states.get(user_id)
+    if state and state.get("game") == "english":
+        return check_english_answer(user_id, text)
 
-    elif user_text.startswith("لعبة كلمة"):
-        topic = user_text.replace("لعبة كلمة", "").strip()
-        reply = handle_english_game(f"لعبة على هذا الموضوع: {topic}")
+    elif text_lower == "learn_english":
+        return start_english_game(user_id)
 
-    elif user_text.startswith("canva عرض"):
-        topic = user_text.replace("canva عرض", "").strip()
-        reply = handle_canva_command("عرض تقديمي", topic)
+    elif text_lower == "vent":
+        return "فضفض لي شعورك، سأستمع لك وأعطيك نصائح وحلول عملية."
 
-    elif user_text.startswith("canva فيديو"):
-        topic = user_text.replace("canva فيديو", "").strip()
-        reply = handle_canva_command("فيديو", topic)
+    elif text_lower.startswith("create_image"):
+        prompt = text.replace("create_image", "").strip()
+        if not prompt:
+            return "أرسل وصف الصورة بعد الأمر create_image"
+        result = genai.generate_image(prompt=prompt, model="image-alpha-001", size="1024x1024")
+        return f"تم إنشاء الصورة: {getattr(result, 'url', 'تم الإنشاء')}"
 
-    elif user_text.startswith("canva صورة"):
-        topic = user_text.replace("canva صورة", "").strip()
-        reply = handle_canva_command("صورة", topic)
+    elif text_lower.startswith("create_video"):
+        prompt = text.replace("create_video", "").strip()
+        if not prompt:
+            return "أرسل وصف الفيديو بعد الأمر create_video"
+        video_result = genai.generate_video(
+            model="video-beta-001",
+            prompt=prompt,
+            resolution="720p",
+            length="10s"
+        )
+        return f"تم إنشاء الفيديو: {getattr(video_result, 'url', 'تم الإنشاء')}"
 
-    elif user_text.startswith("canva تصميم"):
-        topic = user_text.replace("canva تصميم", "").strip()
-        reply = handle_canva_command("تصميم تعليمي", topic)
+    elif text_lower.startswith("create_code"):
+        code_prompt = text.replace("create_code", "").strip()
+        if not code_prompt:
+            return "أرسل الكود أو الوصف بعد الأمر create_code"
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": code_prompt}]
+        )
+        return response['choices'][0]['message']['content']
 
-    elif user_text.startswith("اصنع كود") or user_text.startswith("صحح الكود"):
-        reply = handle_code_command(user_text)
+    elif text_lower.startswith("create_ppt"):
+        return "أرسل لي عنوان الشرائح أو فكرة الفيديو، وسأجهز لك أفكار الشرائح والنصوص المناسبة."
 
-    elif user_text.startswith("فضفض"):
-        reply = handle_emotion(user_text.replace("فضفض", "").strip())
+    elif text_lower.startswith("canva_assist"):
+        return "يمكنك طلب تصاميم جاهزة لـ Canva: عروض تعليمية، صور تعليمية، فيديوهات قصيرة، أو أي تصميم بسرعة وسهولة."
 
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    else:
+        # أي نص آخر يستخدم OpenAI للتفاعل
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": text}]
+        )
+        return response['choices'][0]['message']['content']
+
+# مسار استقبال الرسائل
+@app.route("/message", methods=["POST"])
+def receive_message():
+    data = request.json
+    user_id = data.get("user_id")
+    text = data.get("text")
+
+    if not user_id or not text:
+        return jsonify({"error": "يجب إرسال user_id و text"}), 400
+
+    reply = process_command(user_id, text)
+    return jsonify({"reply": reply})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
