@@ -1,97 +1,76 @@
 import os
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-import openai
-import google.generativeai as genai
 
-# تحميل متغيرات البيئة
-load_dotenv()
+load_dotenv()  # تحميل المتغيرات البيئية من .env
 
-# التحقق من تعيين جميع المتغيرات البيئية الضرورية
-required_env = ["OPENAI_API_KEY", "GENAI_API_KEY", "PORT"]
-missing_env = [var for var in required_env if var not in os.environ]
-if missing_env:
-    raise ValueError(f"يجب تعيين جميع المتغيرات البيئية: {', '.join(missing_env)}")
+# التحقق من المتغيرات البيئية الأساسية
+required_envs = ["OPENAI_API_KEY", "GENAI_API_KEY"]
+missing_envs = [env for env in required_envs if not os.environ.get(env)]
+if missing_envs:
+    raise ValueError(f"يجب تعيين المتغيرات البيئية التالية: {', '.join(missing_envs)} في .env أو Render")
 
-# تعيين المفاتيح
-openai.api_key = os.environ["OPENAI_API_KEY"]
-genai.api_key = os.environ["GENAI_API_KEY"]
+# تنظيف PORT من أي أحرف غريبة
+PORT = int(os.environ.get("PORT", "5000").strip())
 
-# إنشاء تطبيق Flask
 app = Flask(__name__)
 
-# تعيين البورت من Render
-PORT = int(os.environ["PORT"])
-
-# قائمة أوامر المساعدة
-HELP_COMMANDS = {
-    "تعلم الإنجليزية": "ابدأ درس بطريقة لعبة: 'ابدأ درس ABC' أو 'لعب مع الحروف'",
-    "فضفضة": "شارك شعورك: 'أنا حزين' أو 'أريد نصيحة'",
-    "توليد صور": "اطلب: 'اصنع صورة لـ Ariel بأسلوب ديزني'",
-    "توليد فيديو": "اطلب: 'اصنع فيديو تعليمي عن الحروف'",
-    "عرض تقديمي": "اطلب: 'انشئ عرض تقديمي عن حرف A'",
-    "كتابة أكواد": "اطلب: 'اكتب كود بايثون يقوم بـ...' أو 'صحح الكود التالي...'",
-    "إنشاء أوامر": "اطلب مني: 'اكتب أمر لإنشاء صورة/عرض/فيديو...'"
-}
-
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return "بوت التعلم والذكاء الاصطناعي جاهز!"
+    return "بوت الذكاء الاصطناعي التعليمي يعمل بنجاح!"
 
-@app.route("/chat", methods=["POST"])
-def chat():
+@app.route("/bot", methods=["POST"])
+def bot():
     data = request.json
-    user_message = data.get("message", "").strip()
+    user_message = data.get("message", "").strip().lower()
 
     if not user_message:
-        return jsonify({"response": "الرجاء كتابة رسالة."})
+        return jsonify({"response": "الرجاء إرسال رسالة صحيحة."})
 
-    # أمر المساعدة
-    if user_message.lower() in ["مساعدة", "help"]:
-        help_text = "\n".join([f"{cmd}: {desc}" for cmd, desc in HELP_COMMANDS.items()])
-        return jsonify({"response": f"أوامر البوت:\n{help_text}"})
+    # أمر مساعدة شامل
+    if user_message == "مساعدة":
+        help_text = (
+            "أوامر البوت المتاحة:\n\n"
+            "1️⃣ تعليم الإنجليزية بطريقة لعبة:\n"
+            "   اكتب: 'تعليم'\n\n"
+            "2️⃣ فضفضة المشاعر:\n"
+            "   اكتب: 'فضفضة'\n\n"
+            "3️⃣ إنشاء صورة AI:\n"
+            "   اكتب: 'صورة <وصف ما تريد إنشاءه>'\n\n"
+            "4️⃣ إنشاء فيديو AI:\n"
+            "   اكتب: 'فيديو <وصف الفيديو>'\n\n"
+            "5️⃣ إنشاء عرض تقديمي:\n"
+            "   اكتب: 'عرض <موضوع العرض>'\n\n"
+            "6️⃣ كتابة أو تصحيح كود:\n"
+            "   اكتب: 'كود <طلبك البرمجي>'\n\n"
+            "7️⃣ إنشاء أي أمر AI احترافي:\n"
+            "   اكتب: 'إنشاء أمر <وصف ما تريد إنشاؤه>'\n\n"
+            "💡 استخدم 'مساعدة' دائماً لمعرفة الأوامر وكيفية استخدامها."
+        )
+        return jsonify({"response": help_text})
 
-    # التعامل مع توليد صور AI
-    if user_message.startswith("اصنع صورة"):
-        prompt = user_message.replace("اصنع صورة", "").strip()
-        # مثال توليد صورة باستخدام OpenAI أو GenAI
-        response = {"message": f"تم إنشاء صورة بناءً على الوصف: {prompt}"}
-        return jsonify(response)
+    # أوامر تعليمية ومهنية
+    if user_message.startswith("تعليم"):
+        return jsonify({"response": "هيا نتعلم الإنجليزية بطريقة لعبة ممتعة للأطفال! 🎮"})
+    if user_message.startswith("فضفضة"):
+        return jsonify({"response": "تحدث عما يزعجك وسأستمع لك وأقترح حلولاً مناسبة."})
+    if user_message.startswith("صورة"):
+        prompt = user_message.replace("صورة", "").strip()
+        return jsonify({"response": f"جارٍ إنشاء صورة AI احترافية: {prompt}"})
+    if user_message.startswith("فيديو"):
+        prompt = user_message.replace("فيديو", "").strip()
+        return jsonify({"response": f"جارٍ إنشاء فيديو AI احترافي: {prompt}"})
+    if user_message.startswith("عرض"):
+        prompt = user_message.replace("عرض", "").strip()
+        return jsonify({"response": f"جارٍ إنشاء عرض تقديمي شامل عن: {prompt}"})
+    if user_message.startswith("كود"):
+        prompt = user_message.replace("كود", "").strip()
+        return jsonify({"response": f"جارٍ إنشاء أو تصحيح الكود: {prompt}"})
+    if user_message.startswith("إنشاء أمر"):
+        prompt = user_message.replace("إنشاء أمر", "").strip()
+        return jsonify({"response": f"جارٍ إنشاء أمر AI احترافي: {prompt}"})
 
-    # التعامل مع توليد فيديو AI
-    if user_message.startswith("اصنع فيديو"):
-        prompt = user_message.replace("اصنع فيديو", "").strip()
-        response = {"message": f"تم إنشاء فيديو بناءً على الوصف: {prompt}"}
-        return jsonify(response)
-
-    # التعامل مع إنشاء عرض تقديمي
-    if user_message.startswith("انشئ عرض"):
-        prompt = user_message.replace("انشئ عرض", "").strip()
-        response = {"message": f"تم إنشاء عرض تقديمي: {prompt}"}
-        return jsonify(response)
-
-    # التعامل مع كتابة وتصحيح الأكواد
-    if user_message.startswith("اكتب كود") or user_message.startswith("صحح الكود"):
-        response = {"message": f"تم معالجة طلب الأكواد: {user_message}"}
-        return jsonify(response)
-
-    # فضفضة المشاعر
-    if user_message.startswith("أنا") or user_message.startswith("أشعر"):
-        response = {"message": f"شعورك مسموع: {user_message}. إليك نصيحة ودعم."}
-        return jsonify(response)
-
-    # تعلم الإنجليزية بطريقة لعبة
-    if "درس" in user_message or "لعب" in user_message:
-        response = {"message": f"بدء درس/لعبة لتعلم الإنجليزية: {user_message}"}
-        return jsonify(response)
-
-    # إنشاء أوامر جديدة
-    if "اكتب أمر" in user_message or "انشئ أمر" in user_message:
-        response = {"message": f"تم إنشاء الأمر الاحترافي: {user_message}"}
-        return jsonify(response)
-
-    # الرد الافتراضي
-    return jsonify({"response": f"لم أفهم الرسالة: {user_message}. اكتب 'مساعدة' لمعرفة الأوامر."})
+    return jsonify({"response": "لم أفهم الرسالة. اكتب 'مساعدة' لمعرفة الأوامر."})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
