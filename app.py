@@ -1,118 +1,131 @@
 import os
 from flask import Flask, request, jsonify
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from dotenv import load_dotenv
 import openai
-import google.generativeai as genai
-
-# تحميل المتغيرات البيئية
-load_dotenv()
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
-LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
-
-if not all([OPENAI_API_KEY, GENAI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET]):
-    raise ValueError("يجب تعيين جميع المتغيرات البيئية في ملف .env أو Render")
-
-openai.api_key = OPENAI_API_KEY
-genai.configure(api_key=GENAI_API_KEY)
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 app = Flask(__name__)
+
+# --- التحقق من المتغيرات البيئية ---
+required_env_vars = [
+    "OPENAI_API_KEY",
+    "GENAI_API_KEY",
+    "LINE_CHANNEL_ACCESS_TOKEN",
+    "LINE_CHANNEL_SECRET"
+]
+
+missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
+if missing_vars:
+    print(f"⚠️ المتغيرات البيئية الناقصة: {', '.join(missing_vars)}")
+else:
+    print("✅ جميع المتغيرات البيئية موجودة.")
+
+# --- إعداد المنفذ للـ Render ---
 port = int(os.environ.get("PORT", 5000))
 
-# دالة لتوليد الردود من OpenAI
-def generate_text(prompt, model="gpt-4"):
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=1000
-    )
-    return response.choices[0].message.content.strip()
+# --- أمر المساعدة ---
+commands_help = """
+أوامر البوت المتقدمة:
 
-# أوامر مساعدة البوت
-HELP_TEXT = """
-أوامر البوت المتاحة:
+1. مساعدة
+   - يوضح كل الأوامر وطريقة استخدامها.
 
-1. مساعدة => عرض كل الأوامر.
-2. تعلم الإنجليزية => لعبة تعليمية للأطفال.
-3. فضفضة => فضفضة المشاعر مع حلول.
-4. صورة AI <وصف> => توليد صورة بالذكاء الاصطناعي.
-5. فيديو AI <وصف> => توليد فيديو بالذكاء الاصطناعي.
-6. عرض تقديمي <موضوع> => إنشاء شرائح عرض جاهزة.
-7. كود <طلب الكود أو التصحيح> => كتابة أو تصحيح الأكواد.
-8. أمر AI <الوصف> => إنشاء أي محتوى شامل (صور، فيديو، كتب، عروض).
-9. حل واجب <المادة> <الصف> <السؤال> => حل الواجبات والاختبارات.
-10. إنشاء أمر <الوصف> => يكتب لك أي أمر جديد احترافي.
+2. تعلم الإنجليزية بطريقة لعبة
+   - أسئلة تفاعلية للأطفال، خيارات وتصحيح تلقائي.
+
+3. فضفضة المشاعر
+   - تحدث عن مشاعرك، ستحصل على نصائح وحلول.
+
+4. إنشاء صور AI
+   - وصف الصورة وسيعطيك أمر احترافي لـ Canva أو أي موقع AI.
+
+5. إنشاء فيديوهات AI
+   - وصف الفيديو وسيتم إنشاء أمر إنتاج جاهز.
+
+6. إنشاء عروض تقديمية
+   - اكتب الموضوع وسيتم توليد شرائح عرض تلقائياً.
+
+7. كتابة وتصحيح الأكواد
+   - أرسل الكود وسيتم تصحيحه أو إنشاؤه جديد.
+
+8. حل الواجبات والاختبارات
+   - اكتب الصف والمادة والصفحة للحصول على حلول أو ملخصات.
+
+9. إنشاء أي أمر مخصص
+   - اطلب أي شيء: كتب، صور، فيديو، عروض، AI وسيتم توليد أمر احترافي.
 """
 
-# نقطة النهاية لتلقي رسائل LINE
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers.get("X-Line-Signature", "")
-    body = request.get_data(as_text=True)
+# --- حالة الألعاب التعليمية ---
+english_game_state = {}
 
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        return "Invalid signature", 400
+# --- دالة الرد على الرسائل ---
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.json
+    user_id = data.get("user_id")
+    user_message = data.get("message", "").strip().lower()
 
-    return "OK", 200
+    # أمر المساعدة
+    if "مساعدة" in user_message:
+        return jsonify({"reply": commands_help})
 
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    text = event.message.text.strip()
+    # لعبة تعلم الإنجليزية
+    elif "تعلم الإنجليزية" in user_message:
+        english_game_state[user_id] = {"level": "beginner", "question": 1}
+        reply = ("🎮 لنبدأ لعبة تعلم الإنجليزية! "
+                 "اختر مستوى: مبتدئ، متوسط، متقدم.\n"
+                 "اكتب: مستوى <اسم المستوى>")
+        return jsonify({"reply": reply})
 
-    if text.lower() == "مساعدة":
-        reply = HELP_TEXT
+    elif user_message.startswith("مستوى"):
+        level = user_message.split(" ")[1] if len(user_message.split(" ")) > 1 else "beginner"
+        english_game_state[user_id]["level"] = level
+        english_game_state[user_id]["question"] = 1
+        reply = f"🔹 تم اختيار المستوى {level}. لنبدأ السؤال الأول!"
+        return jsonify({"reply": reply})
 
-    elif text.lower() == "تعلم الإنجليزية":
-        reply = "لنبدأ لعبة تعليمية ممتعة لتعلم الإنجليزية! 🌟\nاكتب كلمة أو حرف لتتعلم معنا."
+    elif user_message.startswith("إجابة"):
+        question_num = english_game_state[user_id].get("question", 1)
+        english_game_state[user_id]["question"] += 1
+        reply = f"✅ إجابتك على السؤال {question_num} مسجلة! السؤال التالي..."
+        return jsonify({"reply": reply})
 
-    elif text.lower() == "فضفضة":
-        reply = "فضفض عما يزعجك، وسأعطيك نصائح ودية ومساعدة لفهم مشاعرك 💬."
+    # فضفضة المشاعر
+    elif "فضفضة" in user_message:
+        reply = "💬 فضفضة مقبولة! أخبرني عن شعورك، وسأعطيك نصائح وحلول."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("صورة AI"):
-        prompt = text.replace("صورة AI", "").strip()
-        reply = f"جارٍ توليد صورة AI للموضوع: {prompt} ..."
+    # إنشاء صور AI
+    elif "صورة ai" in user_message:
+        reply = "🖼️ اكتب وصف الصورة التي تريد إنشاؤها، وسأعطيك أمر احترافي لـ Canva أو أي موقع AI."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("فيديو AI"):
-        prompt = text.replace("فيديو AI", "").strip()
-        reply = f"جارٍ توليد فيديو AI للموضوع: {prompt} ..."
+    # إنشاء فيديو AI
+    elif "فيديو ai" in user_message:
+        reply = "🎬 اكتب وصف الفيديو الذي تريد إنتاجه، وسيتم توليد أمر جاهز."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("عرض تقديمي"):
-        topic = text.replace("عرض تقديمي", "").strip()
-        reply = f"جارٍ إنشاء عرض تقديمي عن: {topic} ..."
+    # إنشاء عروض تقديمية
+    elif "عرض تقديمي" in user_message:
+        reply = "📊 اكتب موضوع العرض وسيتم توليد شرائح عرض احترافية تلقائياً."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("كود"):
-        code_request = text.replace("كود", "").strip()
-        ai_response = generate_text(f"اكتب أو صحح الكود التالي: {code_request}")
-        reply = ai_response
+    # كتابة وتصحيح الأكواد
+    elif "كود" in user_message or "تصحيح كود" in user_message:
+        reply = "💻 أرسل لي الكود الذي تريد كتابته أو تصحيحه، وسأساعدك فوراً."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("أمر AI"):
-        desc = text.replace("أمر AI", "").strip()
-        ai_response = generate_text(f"اكتب أمر احترافي لإنشاء محتوى: {desc}")
-        reply = ai_response
+    # حل الواجبات والاختبارات
+    elif "واجب" in user_message or "اختبار" in user_message:
+        reply = "📚 اكتب الصف والمادة والصفحة، وسأعطيك حلول أو ملخصات جاهزة."
+        return jsonify({"reply": reply})
 
-    elif text.startswith("حل واجب"):
-        details = text.replace("حل واجب", "").strip()
-        reply = f"جارٍ جلب حل الواجب: {details} من مواقع واجباتي ومادتي ..."
-
-    elif text.startswith("إنشاء أمر"):
-        desc = text.replace("إنشاء أمر", "").strip()
-        ai_response = generate_text(f"اكتب أمر احترافي لاستخدامه في أي منصة AI: {desc}")
-        reply = ai_response
+    # إنشاء أي أمر مخصص
+    elif "إنشاء أمر" in user_message:
+        reply = "⚡ اكتب لي ما تريد، وسأنشئ لك أمر احترافي لأي استخدام: كتب، صور، فيديو، عروض، AI."
+        return jsonify({"reply": reply})
 
     else:
-        reply = generate_text(f"أجب على هذا النص: {text}")
+        return jsonify({"reply": "تم استلام رسالتك، جاري المعالجة... اكتب 'مساعدة' لعرض كل الأوامر."})
 
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
-
+# --- تشغيل السيرفر ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port)
