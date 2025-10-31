@@ -1,87 +1,106 @@
-from flask import Flask, request, jsonify
 import os
+from flask import Flask, request, jsonify
+import openai
 
 app = Flask(__name__)
 
-# ----------- قائمة الأوامر للمساعدة -----------
-commands_help = {
-    "مساعدة": "يعرض هذه الرسالة مع جميع الأوامر المتاحة.",
-    "صورة": "أنشئ صورة بالذكاء الاصطناعي. مثال: 'صورة غروب الشمس بطابع ديزني'.",
-    "فيديو": "أنشئ فيديو بالذكاء الاصطناعي. مثال: 'فيديو تعليمي عن الحروف'.",
-    "عرض": "أنشئ عرض تقديمي. مثال: 'عرض تقديمي عن تعلم الحروف A-Z'.",
-    "تعليم": "تعلم الإنجليزية بطريقة لعبة. مثال: 'تعليم الحروف للأطفال'.",
-    "فضفضة": "تحدث عن مشاعرك، وسيقدم لك نصائح وحلول.",
-    "أمر": "اطلب من البوت إنشاء أمر احترافي لأي موقع أو AI. مثال: 'أمر حرف الجيم بطابع ديزني'."
-}
+# تعيين مفتاح API من المتغيرات البيئية
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+GENAI_API_KEY = os.environ.get("GENAI_API_KEY")
 
-# ----------- وظائف وهمية للتوضيح -----------
-def generate_image(prompt):
-    # هنا تضع كود توليد الصور بالـ AI
-    return f"تم إنشاء صورة بالذكاء الاصطناعي: {prompt}"
+if not OPENAI_API_KEY or not GENAI_API_KEY:
+    raise ValueError("يجب تعيين كل من OPENAI_API_KEY و GENAI_API_KEY في متغيرات البيئة على Render")
 
-def generate_video(prompt):
-    # هنا تضع كود توليد الفيديو بالـ AI
-    return f"تم إنشاء فيديو بالذكاء الاصطناعي: {prompt}"
+openai.api_key = OPENAI_API_KEY
 
-def generate_presentation(prompt):
-    # هنا تضع كود إنشاء العرض التقديمي
-    return f"تم إنشاء عرض تقديمي: {prompt}"
+# ----------------- دوال المساعد -----------------
 
-def teach_english(prompt):
-    # تعليم الأطفال الإنجليزية بطريقة لعبة
-    return f"درس تعليمي للأطفال: {prompt}"
-
-def vent_emotions(prompt):
-    # فضفضة المشاعر
-    return f"نصيحة أو حل لمشكلتك: {prompt}"
-
+# دالة إنشاء الأوامر الاحترافية لأي محتوى
 def create_command(prompt):
-    # إنشاء أوامر احترافية
-    return f"تم إنشاء أمر احترافي: {prompt}"
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role":"user","content":prompt}]
+    )
+    return response.choices[0].message['content']
 
-# ----------- Route رئيسية للبوت -----------
-@app.route("/chat", methods=["POST"])
-def chat():
+# دالة توليد الصور
+def generate_image(prompt):
+    response = openai.Image.create(
+        prompt=prompt,
+        n=1,
+        size="1024x1024"
+    )
+    return response['data'][0]['url']
+
+# دالة توليد الفيديوهات (مثال نصي)
+def generate_video(prompt):
+    # في الواقع تحتاج API فيديو متقدمة، هذا مجرد مثال نصي
+    return f"رابط فيديو تولد بناء على: {prompt}"
+
+# دالة توليد العروض التقديمية
+def generate_presentation(prompt):
+    # مثال: إنشاء محتوى الشرائح
+    return f"عرض تقديمي جاهز للموضوع: {prompt}"
+
+# دالة تعليم الإنجليزية بطريقة لعبة
+def teach_english_game(word):
+    return f"تعلم كلمة '{word}' بطريقة لعبة: [تمثيل كرتوني + نطق + جملة]"
+
+# أمر المساعدة
+HELP_TEXT = """
+أوامر البوت المتاحة:
+
+1️⃣ مساعدة: لعرض هذا النص.
+2️⃣ صورة: لإنشاء صورة بالذكاء الاصطناعي. مثال: صورة غيمة مع قوس قزح.
+3️⃣ فيديو: لإنشاء فيديو بالذكاء الاصطناعي. مثال: فيديو كرتوني قصير.
+4️⃣ عرض: لإنشاء عرض تقديمي. مثال: عرض عن الفضاء للأطفال.
+5️⃣ أمر: لكتابة أمر احترافي لأي محتوى. مثال: اكتب أمر حرف الجيم بطابع ديزني.
+6️⃣ تعليم: تعلم الإنجليزية بطريقة لعبة. مثال: كلمة "Cat".
+"""
+
+# ----------------- استقبال الرسائل -----------------
+@app.route("/message", methods=["POST"])
+def message():
     data = request.json
-    user_message = data.get("message", "").strip()
+    user_msg = data.get("message", "").strip().lower()
 
-    # أمر المساعدة
-    if user_message == "مساعدة":
-        return jsonify({"reply": commands_help})
+    if not user_msg:
+        return jsonify({"reply": "أرسل رسالة لكي أتمكن من الرد."})
 
-    # توليد صورة
-    if user_message.startswith("صورة"):
-        prompt = user_message.replace("صورة", "").strip()
-        return jsonify({"reply": generate_image(prompt)})
+    if "مساعدة" in user_msg:
+        return jsonify({"reply": HELP_TEXT})
 
-    # توليد فيديو
-    if user_message.startswith("فيديو"):
-        prompt = user_message.replace("فيديو", "").strip()
-        return jsonify({"reply": generate_video(prompt)})
+    elif user_msg.startswith("صورة"):
+        prompt = user_msg.replace("صورة", "").strip()
+        img_url = generate_image(prompt)
+        return jsonify({"reply": f"تم إنشاء الصورة: {img_url}"})
 
-    # إنشاء عرض تقديمي
-    if user_message.startswith("عرض"):
-        prompt = user_message.replace("عرض", "").strip()
-        return jsonify({"reply": generate_presentation(prompt)})
+    elif user_msg.startswith("فيديو"):
+        prompt = user_msg.replace("فيديو", "").strip()
+        video_url = generate_video(prompt)
+        return jsonify({"reply": f"تم إنشاء الفيديو: {video_url}"})
 
-    # تعلم الإنجليزية
-    if user_message.startswith("تعليم"):
-        prompt = user_message.replace("تعليم", "").strip()
-        return jsonify({"reply": teach_english(prompt)})
+    elif user_msg.startswith("عرض"):
+        prompt = user_msg.replace("عرض", "").strip()
+        presentation = generate_presentation(prompt)
+        return jsonify({"reply": f"{presentation}"})
 
-    # فضفضة المشاعر
-    if user_message.startswith("فضفضة"):
-        prompt = user_message.replace("فضفضة", "").strip()
-        return jsonify({"reply": vent_emotions(prompt)})
+    elif user_msg.startswith("أمر"):
+        prompt = user_msg.replace("أمر", "").strip()
+        command = create_command(prompt)
+        return jsonify({"reply": command})
 
-    # إنشاء أمر احترافي
-    if user_message.startswith("أمر"):
-        prompt = user_message.replace("أمر", "").strip()
-        return jsonify({"reply": create_command(prompt)})
+    elif user_msg.startswith("تعليم"):
+        word = user_msg.replace("تعليم", "").strip()
+        lesson = teach_english_game(word)
+        return jsonify({"reply": lesson})
 
-    return jsonify({"reply": "البوت لا يفهم الرسالة، اكتب 'مساعدة' لعرض الأوامر."})
+    else:
+        # الرد الذكي العام
+        reply = create_command(f"رد بطريقة ودية على: {user_msg}")
+        return jsonify({"reply": reply})
 
-# ----------- تشغيل السيرفر -----------
+# ----------------- تشغيل التطبيق -----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
