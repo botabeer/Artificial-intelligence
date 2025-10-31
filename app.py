@@ -1,76 +1,87 @@
-import os
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
-
-load_dotenv()  # تحميل المتغيرات البيئية من .env
-
-# التحقق من المتغيرات البيئية الأساسية
-required_envs = ["OPENAI_API_KEY", "GENAI_API_KEY"]
-missing_envs = [env for env in required_envs if not os.environ.get(env)]
-if missing_envs:
-    raise ValueError(f"يجب تعيين المتغيرات البيئية التالية: {', '.join(missing_envs)} في .env أو Render")
-
-# تنظيف PORT من أي أحرف غريبة
-PORT = int(os.environ.get("PORT", "5000").strip())
+import os
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "بوت الذكاء الاصطناعي التعليمي يعمل بنجاح!"
+# ----------- قائمة الأوامر للمساعدة -----------
+commands_help = {
+    "مساعدة": "يعرض هذه الرسالة مع جميع الأوامر المتاحة.",
+    "صورة": "أنشئ صورة بالذكاء الاصطناعي. مثال: 'صورة غروب الشمس بطابع ديزني'.",
+    "فيديو": "أنشئ فيديو بالذكاء الاصطناعي. مثال: 'فيديو تعليمي عن الحروف'.",
+    "عرض": "أنشئ عرض تقديمي. مثال: 'عرض تقديمي عن تعلم الحروف A-Z'.",
+    "تعليم": "تعلم الإنجليزية بطريقة لعبة. مثال: 'تعليم الحروف للأطفال'.",
+    "فضفضة": "تحدث عن مشاعرك، وسيقدم لك نصائح وحلول.",
+    "أمر": "اطلب من البوت إنشاء أمر احترافي لأي موقع أو AI. مثال: 'أمر حرف الجيم بطابع ديزني'."
+}
 
-@app.route("/bot", methods=["POST"])
-def bot():
+# ----------- وظائف وهمية للتوضيح -----------
+def generate_image(prompt):
+    # هنا تضع كود توليد الصور بالـ AI
+    return f"تم إنشاء صورة بالذكاء الاصطناعي: {prompt}"
+
+def generate_video(prompt):
+    # هنا تضع كود توليد الفيديو بالـ AI
+    return f"تم إنشاء فيديو بالذكاء الاصطناعي: {prompt}"
+
+def generate_presentation(prompt):
+    # هنا تضع كود إنشاء العرض التقديمي
+    return f"تم إنشاء عرض تقديمي: {prompt}"
+
+def teach_english(prompt):
+    # تعليم الأطفال الإنجليزية بطريقة لعبة
+    return f"درس تعليمي للأطفال: {prompt}"
+
+def vent_emotions(prompt):
+    # فضفضة المشاعر
+    return f"نصيحة أو حل لمشكلتك: {prompt}"
+
+def create_command(prompt):
+    # إنشاء أوامر احترافية
+    return f"تم إنشاء أمر احترافي: {prompt}"
+
+# ----------- Route رئيسية للبوت -----------
+@app.route("/chat", methods=["POST"])
+def chat():
     data = request.json
-    user_message = data.get("message", "").strip().lower()
+    user_message = data.get("message", "").strip()
 
-    if not user_message:
-        return jsonify({"response": "الرجاء إرسال رسالة صحيحة."})
-
-    # أمر مساعدة شامل
+    # أمر المساعدة
     if user_message == "مساعدة":
-        help_text = (
-            "أوامر البوت المتاحة:\n\n"
-            "1️⃣ تعليم الإنجليزية بطريقة لعبة:\n"
-            "   اكتب: 'تعليم'\n\n"
-            "2️⃣ فضفضة المشاعر:\n"
-            "   اكتب: 'فضفضة'\n\n"
-            "3️⃣ إنشاء صورة AI:\n"
-            "   اكتب: 'صورة <وصف ما تريد إنشاءه>'\n\n"
-            "4️⃣ إنشاء فيديو AI:\n"
-            "   اكتب: 'فيديو <وصف الفيديو>'\n\n"
-            "5️⃣ إنشاء عرض تقديمي:\n"
-            "   اكتب: 'عرض <موضوع العرض>'\n\n"
-            "6️⃣ كتابة أو تصحيح كود:\n"
-            "   اكتب: 'كود <طلبك البرمجي>'\n\n"
-            "7️⃣ إنشاء أي أمر AI احترافي:\n"
-            "   اكتب: 'إنشاء أمر <وصف ما تريد إنشاؤه>'\n\n"
-            "💡 استخدم 'مساعدة' دائماً لمعرفة الأوامر وكيفية استخدامها."
-        )
-        return jsonify({"response": help_text})
+        return jsonify({"reply": commands_help})
 
-    # أوامر تعليمية ومهنية
-    if user_message.startswith("تعليم"):
-        return jsonify({"response": "هيا نتعلم الإنجليزية بطريقة لعبة ممتعة للأطفال! 🎮"})
-    if user_message.startswith("فضفضة"):
-        return jsonify({"response": "تحدث عما يزعجك وسأستمع لك وأقترح حلولاً مناسبة."})
+    # توليد صورة
     if user_message.startswith("صورة"):
         prompt = user_message.replace("صورة", "").strip()
-        return jsonify({"response": f"جارٍ إنشاء صورة AI احترافية: {prompt}"})
+        return jsonify({"reply": generate_image(prompt)})
+
+    # توليد فيديو
     if user_message.startswith("فيديو"):
         prompt = user_message.replace("فيديو", "").strip()
-        return jsonify({"response": f"جارٍ إنشاء فيديو AI احترافي: {prompt}"})
+        return jsonify({"reply": generate_video(prompt)})
+
+    # إنشاء عرض تقديمي
     if user_message.startswith("عرض"):
         prompt = user_message.replace("عرض", "").strip()
-        return jsonify({"response": f"جارٍ إنشاء عرض تقديمي شامل عن: {prompt}"})
-    if user_message.startswith("كود"):
-        prompt = user_message.replace("كود", "").strip()
-        return jsonify({"response": f"جارٍ إنشاء أو تصحيح الكود: {prompt}"})
-    if user_message.startswith("إنشاء أمر"):
-        prompt = user_message.replace("إنشاء أمر", "").strip()
-        return jsonify({"response": f"جارٍ إنشاء أمر AI احترافي: {prompt}"})
+        return jsonify({"reply": generate_presentation(prompt)})
 
-    return jsonify({"response": "لم أفهم الرسالة. اكتب 'مساعدة' لمعرفة الأوامر."})
+    # تعلم الإنجليزية
+    if user_message.startswith("تعليم"):
+        prompt = user_message.replace("تعليم", "").strip()
+        return jsonify({"reply": teach_english(prompt)})
 
+    # فضفضة المشاعر
+    if user_message.startswith("فضفضة"):
+        prompt = user_message.replace("فضفضة", "").strip()
+        return jsonify({"reply": vent_emotions(prompt)})
+
+    # إنشاء أمر احترافي
+    if user_message.startswith("أمر"):
+        prompt = user_message.replace("أمر", "").strip()
+        return jsonify({"reply": create_command(prompt)})
+
+    return jsonify({"reply": "البوت لا يفهم الرسالة، اكتب 'مساعدة' لعرض الأوامر."})
+
+# ----------- تشغيل السيرفر -----------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=PORT)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
