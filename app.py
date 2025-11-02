@@ -1,165 +1,349 @@
 import os
 import random
+import time
+from collections import defaultdict
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
     QuickReply, QuickReplyButton, MessageAction,
-    CarouselTemplate, CarouselColumn, TemplateSendMessage
+    FlexSendMessage
 )
 
-# ===== إعداد التطبيق و LINE API =====
 app = Flask(__name__)
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET")
+
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# ===== محتوى البوت =====
-QUOTES = ["اقتباس 1", "اقتباس 2", "اقتباس 3"]
-JOKES = ["نكتة 1", "نكتة 2", "نكتة 3"]
-WISDOM = ["حكمة 1", "حكمة 2", "حكمة 3"]
-FORTUNE = ["حظ اليوم 1", "حظ اليوم 2", "حظ اليوم 3"]
+user_points = defaultdict(int)
+user_sessions = defaultdict(lambda: {"game": None, "data": {}})
+group_games = defaultdict(lambda: {"game": None, "answers": {}, "data": {}})
 
-# ===== دوال الألعاب الأساسية (أمثلة) =====
-def get_user_data(user_id):
-    return {"current_game": None}
+QUOTES = [
+    "النجاح ليس نهائياً، والفشل ليس قاتلاً 💪",
+    "لا تنتظر الفرصة المثالية، اصنعها بنفسك ✨",
+    "كل إنجاز عظيم بدأ بقرار المحاولة 🌟"
+]
+
+JOKES = [
+    "لماذا لا يمكن للأنف أن يكون طوله 12 بوصة؟ لأنه سيصبح قدماً! 😄",
+    "ما هو الشيء الذي يجري ولا يمشي؟ الماء! 💧",
+    "طالب كسول قال لأمه: النوم عبادة، فقالت: اذهب صلِّ! 😴"
+]
+
+WISDOM = [
+    "الصبر مفتاح الفرج 🔑",
+    "من جدّ وجد، ومن زرع حصد 🌱",
+    "العلم نور والجهل ظلام 💡"
+]
+
+FORTUNE = [
+    "⭐ حظك اليوم رائع! توقع مفاجآت سارة",
+    "🌟 يوم جيد للتواصل مع الأصدقاء",
+    "✨ فرصة جديدة في الطريق إليك"
+]
+
+RIDDLES = [
+    {"q": "ما هو الشيء الذي له أسنان ولا يعض؟", "a": "مشط"},
+    {"q": "أخف من الريشة ولا يستطيع أقوى رجل حمله؟", "a": "نفس"},
+    {"q": "يسمع بلا أذن ويتكلم بلا لسان؟", "a": "تليفون"}
+]
+
+QUESTIONS = [
+    {"q": "ما هي عاصمة فرنسا؟", "options": ["باريس", "لندن", "روما", "برلين"], "a": "1"},
+    {"q": "كم عدد كواكب المجموعة الشمسية؟", "options": ["7", "8", "9", "10"], "a": "2"},
+    {"q": "من مخترع المصباح الكهربائي؟", "options": ["نيوتن", "توماس إديسون", "أينشتاين", "تيسلا"], "a": "2"}
+]
+
+TRUE_FALSE = [
+    {"q": "الشمس نجم وليست كوكب", "a": "صح"},
+    {"q": "الحوت من الأسماك", "a": "خطأ"},
+    {"q": "مصر في قارة آسيا", "a": "خطأ"}
+]
+
+EMOJI_RIDDLES = [
+    {"emoji": "🦁👑", "answer": "الأسد الملك", "hint": "فيلم ديزني"},
+    {"emoji": "🏴‍☠️⚓", "answer": "قراصنة الكاريبي", "hint": "مغامرات بحرية"},
+    {"emoji": "❄️👸", "answer": "ملكة الثلج", "hint": "فيلم عن الثلج"}
+]
+
+SPEED_WORDS = ["سلام", "مرحبا", "برمجة", "كمبيوتر", "تطبيق"]
+
+def add_points(user_id, points):
+    user_points[user_id] += points
+    return user_points[user_id]
+
+def get_user_rank(user_id):
+    sorted_users = sorted(user_points.items(), key=lambda x: x[1], reverse=True)
+    for i, (uid, _) in enumerate(sorted_users, 1):
+        if uid == user_id:
+            return i
+    return 0
+
+def calculate_compatibility(name1, name2):
+    combined = name1.lower() + name2.lower()
+    total = sum(ord(c) for c in combined)
+    return min((total % 100) + 1, 100)
+
+def is_group_chat(event):
+    return hasattr(event.source, 'group_id') or hasattr(event.source, 'room_id')
+
+def get_chat_id(event):
+    if hasattr(event.source, 'group_id'):
+        return event.source.group_id
+    elif hasattr(event.source, 'room_id'):
+        return event.source.room_id
+    return event.source.user_id
 
 def rock_paper_scissors(user_id, choice):
-    bot_choice = random.choice(["حجر", "ورقة", "مقص"])
+    choices = ["حجر", "ورقة", "مقص"]
+    bot_choice = random.choice(choices)
+    emoji_map = {"حجر": "🪨", "ورقة": "📄", "مقص": "✂️"}
+    
     if choice == bot_choice:
-        return f"🤖: {bot_choice}\nتعادل!"
-    wins = {"حجر":"مقص", "ورقة":"حجر", "مقص":"ورقة"}
+        add_points(user_id, 5)
+        return f"{emoji_map[choice]} أنت\n{emoji_map[bot_choice]} البوت\n🤝 تعادل! +5"
+    
+    wins = {"حجر": "مقص", "ورقة": "حجر", "مقص": "ورقة"}
     if wins[choice] == bot_choice:
-        return f"🤖: {bot_choice}\n🎉 فزت!"
-    return f"🤖: {bot_choice}\n😢 خسرت!"
+        points = add_points(user_id, 15)
+        return f"{emoji_map[choice]} أنت\n{emoji_map[bot_choice]} البوت\n🎉 فزت! +15\n💰 {points}"
+    
+    return f"{emoji_map[choice]} أنت\n{emoji_map[bot_choice]} البوت\n😢 خسرت!"
 
 def guess_number_start(user_id):
-    return "اختر رقم بين 1 و 100"
+    number = random.randint(1, 100)
+    user_sessions[user_id]["game"] = "guess_number"
+    user_sessions[user_id]["data"] = {"number": number, "attempts": 0}
+    return "🎲 خمن رقم بين 1-100!\nاكتب الرقم مباشرة"
 
 def guess_number_check(user_id, guess):
-    number = random.randint(1, 100)
-    return "صحيح!" if int(guess) == number else f"خطأ! الرقم كان {number}"
+    session = user_sessions[user_id]
+    if session["game"] != "guess_number":
+        return "❌ ابدأ بـ 'تخمين رقم'"
+    
+    try:
+        guess = int(guess)
+        number = session["data"]["number"]
+        session["data"]["attempts"] += 1
+        attempts = session["data"]["attempts"]
+        
+        if guess == number:
+            points = max(30 - (attempts * 2), 10)
+            total = add_points(user_id, points)
+            session["game"] = None
+            return f"🎉 صحيح: {number}\n🏆 +{points} ({attempts} محاولات)\n💰 {total}"
+        elif guess < number:
+            return f"⬆️ أعلى من {guess}\n🔢 #{attempts}"
+        else:
+            return f"⬇️ أقل من {guess}\n🔢 #{attempts}"
+    except:
+        return "❌ أدخل رقماً صحيحاً"
 
 def ask_riddle(user_id):
-    return "ما هو الشيء الذي له أسنان ولا يعض؟"
+    riddle = random.choice(RIDDLES)
+    user_sessions[user_id]["game"] = "riddle"
+    user_sessions[user_id]["data"] = {"answer": riddle["a"]}
+    return f"🤔 لغز:\n{riddle['q']}\n\nجواب: [إجابتك]"
 
 def check_riddle(user_id, answer):
-    return "صحيح!" if answer == "مشط" else "خطأ! الإجابة: مشط"
+    session = user_sessions[user_id]
+    if session["game"] != "riddle":
+        return "❌ ابدأ بـ 'لغز'"
+    
+    correct = session["data"]["answer"]
+    session["game"] = None
+    
+    if answer.lower().strip() == correct.lower():
+        points = add_points(user_id, 20)
+        return f"✅ صحيح! {correct}\n🏆 +20\n💰 {points}"
+    return f"❌ خطأ! الجواب: {correct}"
 
 def ask_question(user_id):
-    return "هل الأرض مسطحة أم كروية؟"
+    q = random.choice(QUESTIONS)
+    user_sessions[user_id]["game"] = "question"
+    user_sessions[user_id]["data"] = {"answer": q["a"]}
+    
+    options_text = "\n".join([f"{i}. {opt}" for i, opt in enumerate(q["options"], 1)])
+    return f"❓ {q['q']}\n\n{options_text}\n\nإجابة: [رقم]"
 
-def check_question_answer(user_id, answer):
-    return "صحيح!" if answer.lower() == "كروية" else "خطأ!"
+def check_question(user_id, answer):
+    session = user_sessions[user_id]
+    if session["game"] != "question":
+        return "❌ ابدأ بـ 'سؤال'"
+    
+    correct = session["data"]["answer"]
+    session["game"] = None
+    
+    if answer.strip() == correct:
+        points = add_points(user_id, 15)
+        return f"✅ صحيح!\n🏆 +15\n💰 {points}"
+    return f"❌ خطأ! الجواب: {correct}"
 
 def ask_true_false(user_id):
-    return "الشمس أكبر من القمر؟"
+    q = random.choice(TRUE_FALSE)
+    user_sessions[user_id]["game"] = "true_false"
+    user_sessions[user_id]["data"] = {"answer": q["a"]}
+    return f"🤷 صح أو خطأ:\n{q['q']}"
 
 def check_true_false(user_id, answer):
-    return "✅ صح" if answer == "صح" else "❌ خطأ"
+    session = user_sessions[user_id]
+    if session["game"] != "true_false":
+        return "❌ ابدأ بـ 'صح أو خطأ'"
+    
+    correct = session["data"]["answer"]
+    session["game"] = None
+    
+    if answer == correct:
+        points = add_points(user_id, 10)
+        return f"✅ صحيح!\n🏆 +10\n💰 {points}"
+    return f"❌ خطأ! الجواب: {correct}"
 
-def emoji_guess_game(user_id):
-    return "🤔 خمن الإيموجي!"
+def emoji_riddle_game(user_id):
+    riddle = random.choice(EMOJI_RIDDLES)
+    user_sessions[user_id]["game"] = "emoji_riddle"
+    user_sessions[user_id]["data"] = {"answer": riddle["answer"]}
+    return f"🎭 {riddle['emoji']}\nتلميح: {riddle['hint']}\n\nجواب: [إجابتك]"
 
-def check_emoji_guess(user_id, answer):
-    return "صحيح!" if answer == "🦁" else "خطأ!"
-
-def reverse_word(word):
-    return word[::-1]
-
-def scramble_word(word):
-    l = list(word)
-    random.shuffle(l)
-    return "".join(l)
-
-def sort_numbers_game(user_id):
-    return "رتب الأرقام: 5, 2, 9"
-
-def check_sort_numbers(user_id, answer):
-    return "صحيح!" if answer == "2,5,9" else "خطأ!"
+def check_emoji_riddle(user_id, answer):
+    session = user_sessions[user_id]
+    if session["game"] != "emoji_riddle":
+        return "❌ ابدأ بـ 'تخمين إيموجي'"
+    
+    correct = session["data"]["answer"]
+    session["game"] = None
+    
+    if answer.lower().strip() in correct.lower():
+        points = add_points(user_id, 25)
+        return f"✅ {correct}\n🏆 +25\n💰 {points}"
+    return f"❌ الجواب: {correct}"
 
 def type_speed_game(user_id):
-    return "اكتب: سلام"
+    word = random.choice(SPEED_WORDS)
+    user_sessions[user_id]["game"] = "type_speed"
+    user_sessions[user_id]["data"] = {"word": word, "start_time": time.time()}
+    return f"⚡ اكتب:\n{word}"
 
 def check_type_speed(user_id, answer):
-    return "صحيح!" if answer == "سلام" else "خطأ!"
+    session = user_sessions[user_id]
+    if session["game"] != "type_speed":
+        return "❌ ابدأ بـ 'اكتب بسرعة'"
+    
+    word = session["data"]["word"]
+    elapsed = time.time() - session["data"]["start_time"]
+    session["game"] = None
+    
+    if answer.strip() == word:
+        speed_bonus = max(20 - int(elapsed), 5)
+        points = add_points(user_id, speed_bonus)
+        return f"✅ صحيح!\n⏱️ {elapsed:.2f}ث\n🏆 +{speed_bonus}\n💰 {points}"
+    return f"❌ الكلمة: {word}"
 
-def word_battle_game(user_id):
-    return "اكتب كلمة تبدأ بحرف A"
+def word_battle_group_start(chat_id):
+    letter = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    group_games[chat_id]["game"] = "word_battle"
+    group_games[chat_id]["data"] = {"letter": letter}
+    return f"⚔️ حرب الكلمات!\nحرف: {letter}\n⏰ 45 ثانية\n\nجواب جماعي: [كلمتك]"
 
-def check_word_battle(user_id, answer):
-    return "صحيح!" if answer.lower().startswith("a") else "خطأ!"
+def human_animal_plant_start(chat_id):
+    letter = random.choice("أبتثجحخدذرزسشصضطظعغفقكلمنهوي")
+    group_games[chat_id]["game"] = "human_animal"
+    group_games[chat_id]["data"] = {"letter": letter}
+    return f"🎯 إنسان-حيوان-نبات\nحرف: {letter}\n⏰ 60 ثانية\n\nجواب جماعي: إنسان,حيوان,نبات"
 
-def emoji_memory_game(user_id):
-    return "تذكر هذه الإيموجي: 🐶🐱🐭"
+def add_group_answer(chat_id, user_id, answer):
+    if chat_id not in group_games or not group_games[chat_id]["game"]:
+        return False
+    group_games[chat_id]["answers"][user_id] = answer
+    return True
 
-def check_emoji_memory(user_id, answer):
-    return "صحيح!" if answer == "🐶🐱🐭" else "خطأ!"
-
-def human_animal_plant_game(user_id):
-    return "اذكر شيء من الإنسان"
-
-def check_human_animal_plant(user_id, answer):
-    return "صحيح!" if answer.lower() == "رأس" else "خطأ!"
-
-def who_am_i_game(user_id):
-    return "أنا حيوان بحرف S"
-
-def check_who_am_i(user_id, answer):
-    return "صحيح!" if answer.lower() == "snake" else "خطأ!"
-
-def guess_song(user_id):
-    return "🎵 ما اسم الأغنية: 🎶❤️"
-
-def check_song(user_id, answer):
-    return "صحيح!" if answer.lower() == "حب" else "خطأ!"
-
-def guess_movie_emoji(user_id):
-    return "🎬 خمن الفيلم: 🦁👑"
-
-def check_movie(user_id, answer):
-    return "صحيح!" if answer.lower() == "الأسد الملك" else "خطأ!"
-
-def guess_celebrity(user_id):
-    return "من هو المشهور؟ 🕶️"
-
-def check_celebrity(user_id, answer):
-    return "صحيح!" if answer.lower() == "محمد صلاح" else "خطأ!"
-
-def get_user_points(user_id):
-    return "لديك 100 نقطة"
+def end_group_game(chat_id):
+    if chat_id not in group_games:
+        return None
+    
+    game_data = group_games[chat_id]
+    answers = game_data["answers"]
+    
+    if not answers:
+        group_games[chat_id] = {"game": None, "answers": {}, "data": {}}
+        return "❌ لا مشاركين!"
+    
+    results = []
+    for user_id, answer in answers.items():
+        points = len(answer) * 3 if game_data["game"] == "word_battle" else 15
+        add_points(user_id, points)
+        results.append((answer, points))
+    
+    results.sort(key=lambda x: x[1], reverse=True)
+    
+    result_text = "🏆 النتائج:\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (answer, points) in enumerate(results[:10], 1):
+        medal = medals[i-1] if i <= 3 else f"{i}."
+        result_text += f"{medal} {answer} - {points}\n"
+    
+    group_games[chat_id] = {"game": None, "answers": {}, "data": {}}
+    return result_text
 
 def get_leaderboard():
-    return "المتصدرين:\n1- محمد\n2- علي\n3- فاطمة"
+    if not user_points:
+        return "📊 لا متصدرين بعد!"
+    
+    sorted_users = sorted(user_points.items(), key=lambda x: x[1], reverse=True)[:10]
+    text = "🏆 المتصدرين:\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    
+    for i, (user_id, points) in enumerate(sorted_users, 1):
+        medal = medals[i-1] if i <= 3 else f"{i}."
+        text += f"{medal} {points}\n"
+    
+    return text
 
-# ===== دالة إنشاء Carousel واحد لكل الألعاب 40 لعبة =====
-def create_games_carousel():
-    all_games = [
-        "حجر ورقة مقص", "تخمين رقم", "رقم عشوائي", "اقتباس", "لغز", "سؤال", "صح أو خطأ",
-        "تخمين ايموجي", "قلب كلمة", "ملخبط", "ترتيب", "اكتب بسرعة", "حرب الكلمات", "ذاكرة الإيموجي",
-        "انحـن", "من أنا؟", "تخمين أغنية", "تخمين فيلم", "تخمين مشهور", "نكتة",
-        "حكمة", "حظي اليوم", "نقاطي", "المتصدرين", "لعبة 25", "لعبة 26", "لعبة 27", "لعبة 28",
-        "لعبة 29", "لعبة 30", "لعبة 31", "لعبة 32", "لعبة 33", "لعبة 34", "لعبة 35", "لعبة 36",
-        "لعبة 37", "لعبة 38", "لعبة 39", "لعبة 40"
-    ]
-    columns = []
-    for game in all_games:
-        columns.append(
-            CarouselColumn(
-                text=game,
-                title="🎮 الألعاب",
-                actions=[MessageAction(label=game, text=game)]
-            )
-        )
-    carousel_template = TemplateSendMessage(
-        alt_text="🎮 قائمة الألعاب",
-        template=CarouselTemplate(columns=columns)
-    )
-    return carousel_template
+def create_flex_menu():
+    bubble = {
+        "type": "bubble",
+        "hero": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [{"type": "text", "text": "🎮 قائمة الألعاب", "weight": "bold", "size": "xl", "color": "#ffffff"}],
+            "backgroundColor": "#6366f1",
+            "paddingAll": "20px"
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": "🎯 ألعاب فردية", "weight": "bold", "size": "lg"},
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "lg",
+                    "spacing": "sm",
+                    "contents": [
+                        {"type": "button", "action": {"type": "message", "label": "حجر ورقة مقص", "text": "حجر ورقة مقص"}, "style": "primary"},
+                        {"type": "button", "action": {"type": "message", "label": "تخمين رقم", "text": "تخمين رقم"}, "style": "primary"},
+                        {"type": "button", "action": {"type": "message", "label": "لغز", "text": "لغز"}, "style": "primary"}
+                    ]
+                },
+                {"type": "separator", "margin": "xl"},
+                {"type": "text", "text": "👥 جماعية", "weight": "bold", "size": "lg", "margin": "xl"},
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "lg",
+                    "spacing": "sm",
+                    "contents": [
+                        {"type": "button", "action": {"type": "message", "label": "حرب الكلمات", "text": "حرب الكلمات جماعي"}, "style": "secondary"}
+                    ]
+                }
+            ]
+        }
+    }
+    return FlexSendMessage(alt_text="القائمة", contents=bubble)
 
-# ===== Webhook =====
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature')
@@ -168,22 +352,25 @@ def callback():
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
+    except Exception as e:
+        print(f"Error: {e}")
     return 'OK', 200
 
-# ===== معالجة الرسائل =====
+@app.route("/", methods=['GET'])
+def home():
+    return "Bot Running! 🎮", 200
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
-    user = get_user_data(user_id)
+    chat_id = get_chat_id(event)
+    is_group = is_group_chat(event)
     
-    # مساعدة أو قائمة
-    if text.lower() in ['مساعدة', 'قائمة', 'الأوامر', 'help', 'start', 'القائمة']:
-        carousel = create_games_carousel()
-        line_bot_api.reply_message(event.reply_token, carousel)
+    if text.lower() in ['مساعدة', 'قائمة', 'help', 'start', 'menu']:
+        line_bot_api.reply_message(event.reply_token, create_flex_menu())
         return
     
-    # حجر ورقة مقص
     if text == 'حجر ورقة مقص':
         quick_reply = QuickReply(items=[
             QuickReplyButton(action=MessageAction(label="🪨 حجر", text="حجر")),
@@ -192,53 +379,131 @@ def handle_message(event):
         ])
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="اختر:", quick_reply=quick_reply))
         return
+    
     if text in ['حجر', 'ورقة', 'مقص']:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=rock_paper_scissors(user_id, text)))
         return
     
-    # مثال لألعاب أخرى
     if text == 'تخمين رقم':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=guess_number_start(user_id)))
         return
-    if text.startswith('تخمين:'):
-        guess = text.replace('تخمين:', '').strip()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=guess_number_check(user_id, guess)))
+    
+    if user_sessions[user_id]["game"] == "guess_number" and text.isdigit():
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=guess_number_check(user_id, text)))
         return
     
     if text == 'رقم عشوائي':
-        num = random.randint(1, 1000)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎲 الرقم العشوائي: {num}"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎲 {random.randint(1, 1000)}"))
+        return
+    
+    if text == 'لغز':
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=ask_riddle(user_id)))
+        return
+    
+    if text.startswith('جواب:'):
+        answer = text.replace('جواب:', '').strip()
+        if user_sessions[user_id]["game"] == "riddle":
+            result = check_riddle(user_id, answer)
+        elif user_sessions[user_id]["game"] == "emoji_riddle":
+            result = check_emoji_riddle(user_id, answer)
+        else:
+            result = "❌ لا لعبة نشطة"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result))
+        return
+    
+    if text == 'سؤال':
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=ask_question(user_id)))
+        return
+    
+    if text.startswith('إجابة:'):
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=check_question(user_id, text.replace('إجابة:', '').strip())))
+        return
+    
+    if text == 'صح أو خطأ':
+        quick_reply = QuickReply(items=[
+            QuickReplyButton(action=MessageAction(label="✅ صح", text="صح")),
+            QuickReplyButton(action=MessageAction(label="❌ خطأ", text="خطأ"))
+        ])
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=ask_true_false(user_id), quick_reply=quick_reply))
+        return
+    
+    if text in ['صح', 'خطأ'] and user_sessions[user_id]["game"] == "true_false":
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=check_true_false(user_id, text)))
+        return
+    
+    if text == 'تخمين إيموجي':
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=emoji_riddle_game(user_id)))
+        return
+    
+    if text == 'اكتب بسرعة':
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=type_speed_game(user_id)))
+        return
+    
+    if user_sessions[user_id]["game"] == "type_speed":
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=check_type_speed(user_id, text)))
         return
     
     if text == 'اقتباس':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"💭 {random.choice(QUOTES)}"))
         return
     
-    # محتوى ترفيهي
     if text == 'نكتة':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"😄 {random.choice(JOKES)}"))
         return
+    
     if text == 'حكمة':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🌟 {random.choice(WISDOM)}"))
         return
+    
     if text == 'حظي اليوم':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=random.choice(FORTUNE)))
         return
     
+    if 'توافق' in text and '+' in text:
+        try:
+            names = text.replace('توافق', '').strip().split('+')
+            if len(names) == 2:
+                percentage = calculate_compatibility(names[0].strip(), names[1].strip())
+                emoji = "❤️" if percentage >= 80 else "💕" if percentage >= 60 else "💛" if percentage >= 40 else "💔"
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"{emoji} {names[0]} + {names[1]}\n{percentage}%"))
+                return
+        except:
+            pass
+    
     if text == 'نقاطي':
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=get_user_points(user_id)))
+        points = user_points[user_id]
+        rank = get_user_rank(user_id)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"💰 {points}\n🏆 #{rank}"))
         return
+    
     if text == 'المتصدرين':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=get_leaderboard()))
         return
     
-    # رسالة افتراضية
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text="🎮 اكتب 'مساعدة' لعرض جميع الألعاب!\n\n✨ 40 لعبة متنوعة في انتظارك")
-    )
+    if is_group:
+        if text == 'حرب الكلمات جماعي':
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=word_battle_group_start(chat_id)))
+            return
+        
+        if text == 'إنسان حيوان نبات':
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=human_animal_plant_start(chat_id)))
+            return
+        
+        if text == 'إنهاء اللعبة':
+            result = end_group_game(chat_id)
+            if result:
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result))
+            return
+        
+        if text.startswith('جواب جماعي:'):
+            answer = text.replace('جواب جماعي:', '').strip()
+            if add_group_answer(chat_id, user_id, answer):
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ {answer}"))
+            return
+    
+    welcome = "👋 مرحباً!\n\n🎮 'قائمة' للألعاب\n\n• حجر ورقة مقص\n• تخمين رقم\n• لغز\n• نكتة\n• نقاطي"
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=welcome))
 
-# ===== تشغيل السيرفر =====
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=False)
