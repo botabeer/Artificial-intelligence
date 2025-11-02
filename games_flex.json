@@ -1,0 +1,182 @@
+{
+  "type": "bubble",
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "🎮 قائمة الألعاب",
+        "weight": "bold",
+        "size": "lg",
+        "align": "center",
+        "color": "#ffffff"
+      }
+    ],
+    "backgroundColor": "#4CAF50",
+    "paddingAll": "12px"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "spacing": "md",
+    "contents": [
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "إنسان-حيوان-نبات-جماد",
+          "text": "/play icpn"
+        },
+        "color": "#FF9800",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "البحث عن الكنز",
+          "text": "/play treasure"
+        },
+        "color": "#03A9F4",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "تكوين الكلمات",
+          "text": "/play scramble"
+        },
+        "color": "#9C27B0",
+        "style": "primary"
+      },
+      {
+        "type": "separator",
+        "margin": "md"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "سلسلة الكلمات",
+          "text": "/play chain"
+        },
+        "color": "#795548",
+        "style": "secondary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "أسرع كلمة",
+          "text": "/play speedword"
+        },
+        "color": "#F44336",
+        "style": "secondary"
+      },
+      {
+        "type": "separator",
+        "margin": "md"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "الحروف المبعثرة",
+          "text": "/play scramble-ind"
+        },
+        "color": "#00BCD4",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "تحدي أسرع كتابة",
+          "text": "/play typing"
+        },
+        "color": "#FF5722",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "تحدي الذاكرة",
+          "text": "/play memory"
+        },
+        "color": "#8BC34A",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "خمن الرمز",
+          "text": "/play guess"
+        },
+        "color": "#607D8B",
+        "style": "primary"
+      },
+      {
+        "type": "separator",
+        "margin": "md"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "توافق الأسماء",
+          "text": "/match names"
+        },
+        "color": "#E91E63",
+        "style": "secondary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "نصيحة اليوم",
+          "text": "/advice"
+        },
+        "color": "#3F51B5",
+        "style": "secondary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "ألوان وأشكال",
+          "text": "/colors"
+        },
+        "color": "#009688",
+        "style": "secondary"
+      },
+      {
+        "type": "separator",
+        "margin": "md"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "لوحة المتصدرين",
+          "text": "/top"
+        },
+        "color": "#795548",
+        "style": "primary"
+      },
+      {
+        "type": "button",
+        "action": {
+          "type": "message",
+          "label": "نقاطي",
+          "text": "/mypoints"
+        },
+        "color": "#FF9800",
+        "style": "primary"
+      }
+    ]
+  }
+}
