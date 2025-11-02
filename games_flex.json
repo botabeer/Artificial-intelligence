@@ -6,15 +6,15 @@
     "contents": [
       {
         "type": "text",
-        "text": "🎮 قائمة الألعاب",
+        "text": "🎮 قائمة الألعاب الاحترافية",
         "weight": "bold",
-        "size": "lg",
+        "size": "xl",
         "align": "center",
         "color": "#ffffff"
       }
     ],
-    "backgroundColor": "#4CAF50",
-    "paddingAll": "12px"
+    "backgroundColor": "#1E88E5",
+    "paddingAll": "15px"
   },
   "body": {
     "type": "box",
@@ -22,33 +22,39 @@
     "spacing": "md",
     "contents": [
       {
+        "type": "text",
+        "text": "🔹 الألعاب الجماعية المعقدة",
+        "weight": "bold",
+        "color": "#1B5E20"
+      },
+      {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "إنسان-حيوان-نبات-جماد",
+          "label": "🧠 إنسان-حيوان-نبات-جماد",
           "text": "/play icpn"
         },
-        "color": "#FF9800",
+        "color": "#43A047",
         "style": "primary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "البحث عن الكنز",
+          "label": "💎 البحث عن الكنز",
           "text": "/play treasure"
         },
-        "color": "#03A9F4",
+        "color": "#FDD835",
         "style": "primary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "تكوين الكلمات",
+          "label": "🔤 تكوين الكلمات",
           "text": "/play scramble"
         },
-        "color": "#9C27B0",
+        "color": "#8E24AA",
         "style": "primary"
       },
       {
@@ -56,23 +62,29 @@
         "margin": "md"
       },
       {
+        "type": "text",
+        "text": "🔹 الألعاب الجماعية البسيطة",
+        "weight": "bold",
+        "color": "#F57F17"
+      },
+      {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "سلسلة الكلمات",
+          "label": "🔗 سلسلة الكلمات",
           "text": "/play chain"
         },
-        "color": "#795548",
+        "color": "#FF7043",
         "style": "secondary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "أسرع كلمة",
+          "label": "⚡️ أسرع كلمة",
           "text": "/play speedword"
         },
-        "color": "#F44336",
+        "color": "#D32F2F",
         "style": "secondary"
       },
       {
@@ -80,20 +92,26 @@
         "margin": "md"
       },
       {
+        "type": "text",
+        "text": "🔹 الألعاب الفردية السريعة",
+        "weight": "bold",
+        "color": "#0288D1"
+      },
+      {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "الحروف المبعثرة",
+          "label": "🔀 الحروف المبعثرة",
           "text": "/play scramble-ind"
         },
-        "color": "#00BCD4",
+        "color": "#29B6F6",
         "style": "primary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "تحدي أسرع كتابة",
+          "label": "⌨️ تحدي أسرع كتابة",
           "text": "/play typing"
         },
         "color": "#FF5722",
@@ -103,17 +121,17 @@
         "type": "button",
         "action": {
           "type": "message",
-          "label": "تحدي الذاكرة",
+          "label": "🧠 تحدي الذاكرة",
           "text": "/play memory"
         },
-        "color": "#8BC34A",
+        "color": "#7CB342",
         "style": "primary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "خمن الرمز",
+          "label": "❓ خمن الرمز",
           "text": "/play guess"
         },
         "color": "#607D8B",
@@ -124,10 +142,16 @@
         "margin": "md"
       },
       {
+        "type": "text",
+        "text": "🔹 أوامر ترفيهية ومحتوى ثابت",
+        "weight": "bold",
+        "color": "#F06292"
+      },
+      {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "توافق الأسماء",
+          "label": "❤️ توافق الأسماء",
           "text": "/match names"
         },
         "color": "#E91E63",
@@ -137,7 +161,7 @@
         "type": "button",
         "action": {
           "type": "message",
-          "label": "نصيحة اليوم",
+          "label": "💡 نصيحة اليوم",
           "text": "/advice"
         },
         "color": "#3F51B5",
@@ -147,7 +171,7 @@
         "type": "button",
         "action": {
           "type": "message",
-          "label": "ألوان وأشكال",
+          "label": "🎨 ألوان وأشكال",
           "text": "/colors"
         },
         "color": "#009688",
@@ -158,23 +182,29 @@
         "margin": "md"
       },
       {
+        "type": "text",
+        "text": "🔹 نظام النقاط والمتصدرين",
+        "weight": "bold",
+        "color": "#FF6F00"
+      },
+      {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "لوحة المتصدرين",
+          "label": "🏆 لوحة المتصدرين",
           "text": "/top"
         },
-        "color": "#795548",
+        "color": "#FF9800",
         "style": "primary"
       },
       {
         "type": "button",
         "action": {
           "type": "message",
-          "label": "نقاطي",
+          "label": "⭐️ نقاطي",
           "text": "/mypoints"
         },
-        "color": "#FF9800",
+        "color": "#FFB300",
         "style": "primary"
       }
     ]
