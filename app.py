@@ -1041,6 +1041,8 @@ def handle_message(event):
         TextSendMessage(text="🎮 اكتب 'مساعدة' لعرض جميع الألعاب!\n\n✨ 40 لعبة متنوعة في انتظارك")
     )
 
+import os
+
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.environ.get("PORT", 5000))  # يستخدم 5000 كقيمة افتراضية إذا لم يُحدد PORT
+    app.run(host="0.0.0.0", port=port)
