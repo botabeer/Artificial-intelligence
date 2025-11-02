@@ -1,41 +1,32 @@
 import os
 import random
-import time
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage, QuickReply,
-    QuickReplyButton, MessageAction, FlexSendMessage,
-    BubbleContainer, BoxComponent, TextComponent,
-    SeparatorComponent, ButtonComponent, FillerComponent
+    MessageEvent, TextMessage, TextSendMessage,
+    QuickReply, QuickReplyButton, MessageAction,
+    FlexSendMessage, BubbleContainer, BoxComponent,
+    TextComponent, SeparatorComponent, ButtonComponent
 )
-from apscheduler.schedulers.background import BackgroundScheduler
-from google import genai
-
-# ============================================================
-# 1. الإعداد الأساسي
-# ============================================================
 
 app = Flask(__name__)
-scheduler = BackgroundScheduler()
-scheduler.start()
 
+# ===== إعداد مفاتيح LINE =====
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN', '')
 LINE_CHANNEL_SECRET = os.environ.get('LINE_CHANNEL_SECRET', '')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-chat_states = {}  # حالة كل محادثة
-user_id_to_name = {}
+# ===== قاعدة البيانات وحالة الألعاب =====
 DB_NAME = 'gamebot.db'
+chat_states = {}  # لتخزين حالة كل محادثة
+user_id_to_name = {}
 
-# إعداد الألعاب
+# ===== إعداد الألعاب =====
 GAME_CONFIGS = {
     'atobus': {'cats': ["إنسان", "حيوان", "نبات", "جماد", "بلاد"], 'duration': 60, 'points': 5, 'cmd': 'لعبه'},
     'speed_word': {'duration': 15, 'points': 10, 'cmd': 'أسرع'},
@@ -47,13 +38,8 @@ GAME_CONFIGS = {
     ], 'points': 15, 'cmd': 'كنز'},
     'word_chain': {'start': ["وردة", "قلم", "كتاب", "سماء", "بحر"], 'points': 1, 'cmd': 'سلسلة'}
 }
-ATOBUS_LETTERS = list("ابتثجحخدزرشصضطظعغفقكلمنهوي")
-DAILY_TIPS = ["ابدأ يومك بابتسامة ☀️", "اشرب 8 أكواب ماء 💧", "اقرأ 30 دقيقة 📚"]
 
-# ============================================================
-# 2. قاعدة البيانات
-# ============================================================
-
+# ===== دوال قاعدة البيانات =====
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
@@ -71,22 +57,22 @@ def init_db():
 def calculate_level(points):
     return min(100, 1 + points // 100)
 
-def db_add_points(user_id, points, game_type, won=False):
+def db_add_points(user_id, points, won=False):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     display_name = user_id_to_name.get(user_id, f"لاعب {user_id[-4:]}")
+    
     c.execute('''INSERT INTO user_scores (user_id, display_name, total_points, games_played, games_won)
-                 VALUES (?, ?, ?, 1, ?)
-                 ON CONFLICT(user_id) DO UPDATE SET
-                 total_points = total_points + ?, 
-                 games_played = games_played + 1,
-                 games_won = games_won + ?,
-                 display_name = ?''',
+                 VALUES (?, ?, ?, 1, ?) ON CONFLICT(user_id) DO UPDATE SET
+                 total_points = total_points + ?, games_played = games_played + 1,
+                 games_won = games_won + ?, display_name = ?''',
               (user_id, display_name, points, 1 if won else 0, points, 1 if won else 0, display_name))
+    
     c.execute('SELECT total_points FROM user_scores WHERE user_id = ?', (user_id,))
     total = c.fetchone()[0]
     new_level = calculate_level(total)
     c.execute('UPDATE user_scores SET level = ? WHERE user_id = ?', (new_level, user_id))
+    
     conn.commit()
     conn.close()
     return new_level
@@ -111,72 +97,7 @@ def db_get_leaderboard(limit=10):
 
 init_db()
 
-# ============================================================
-# 3. Flex Messages
-# ============================================================
-
-def create_profile_card(user_id):
-    stats = db_get_stats(user_id)
-    if not stats: return None
-    win_rate = (stats['games_won'] / stats['games_played'] * 100) if stats['games_played'] > 0 else 0
-    progress = ((stats['total_points'] % 100) / 100 * 100)
-    def create_row(label, value, color=None):
-        return BoxComponent(layout='horizontal', margin='lg', contents=[
-            TextComponent(text=label, size='md', flex=1),
-            TextComponent(text=str(value), size='md', weight='bold', align='end', flex=1, color=color)
-        ])
-    rows = [
-        create_row('💰 النقاط:', stats['total_points'], '#F59E0B'),
-        SeparatorComponent(margin='lg'),
-        create_row('🎯 الألعاب:', stats['games_played']),
-        SeparatorComponent(margin='lg'),
-        create_row('🏆 الانتصارات:', stats['games_won'], '#10B981'),
-        SeparatorComponent(margin='lg'),
-        create_row('📊 معدل الفوز:', f'{win_rate:.1f}%', '#8B5CF6')
-    ]
-    bubble = BubbleContainer(
-        header=BoxComponent(layout='vertical', contents=[
-            TextComponent(text=f"🎮 {stats['display_name']}", weight='bold', size='xl', color='#ffffff'),
-            TextComponent(text=f"المستوى {stats['level']}", size='sm', color='#ffffff', margin='md')
-        ], background_color='#3B82F6', padding_all='20px'),
-        body=BoxComponent(layout='vertical', contents=rows + [
-            TextComponent(text=f'التقدم للمستوى {stats["level"] + 1}', size='xs', color='#999999', margin='xl'),
-            BoxComponent(layout='vertical', height='6px', background_color='#E5E7EB', margin='sm', contents=[
-                BoxComponent(layout='vertical', height='6px', background_color='#3B82F6', contents=[FillerComponent()], width=f'{min(100, progress):.0f}%')
-            ])
-        ], padding_all='20px'),
-        footer=BoxComponent(layout='vertical', padding_all='15px', contents=[ButtonComponent(action=MessageAction(label='🏆 لوحة المتصدرين', text='متصدرين'), style='primary', color='#3B82F6')])
-    )
-    return FlexSendMessage(alt_text='ملفك الشخصي', contents=bubble)
-
-def create_leaderboard_flex():
-    leaders = db_get_leaderboard(10)
-    if not leaders: return None
-    medals = ['🥇', '🥈', '🥉']
-    colors = ['#FFD700', '#C0C0C0', '#CD7F32', '#3B82F6']
-    contents = []
-    for i, (name, points, _, wins) in enumerate(leaders):
-        rank = i + 1
-        medal_text = medals[rank-1] if rank <= 3 else f'#{rank}'
-        contents.extend([
-            BoxComponent(layout='horizontal', margin='md', padding_all='8px', contents=[
-                TextComponent(text=medal_text, size='lg', weight='bold', flex=1),
-                BoxComponent(layout='vertical', flex=3, contents=[
-                    TextComponent(text=name[:15], size='md', weight='bold'),
-                    TextComponent(text=f'🏆 انتصارات: {wins}', size='xs', color='#999999')
-                ]),
-                TextComponent(text=f'{points}', size='lg', weight='bold', align='end', color=colors[min(rank-1, 3)], flex=2)
-            ]),
-            SeparatorComponent(margin='md')
-        ])
-    bubble = BubbleContainer(
-        header=BoxComponent(layout='vertical', background_color='#FF6B6B', padding_all='15px', contents=[
-            TextComponent(text='🏆 لوحة المتصدرين', weight='bold', size='xl', color='#ffffff', align='center')
-        ]),
-        body=BoxComponent(layout='vertical', padding_all='15px', contents=contents[:-1])
-    )
-    return FlexSendMessage(alt_text='لوحة المتصدرين', contents=bubble)
-
+# ===== دوال Flex Messages =====
 def create_games_menu():
     games_list = [
         {'name': 'إنسان حيوان نبات', 'cmd': 'لعبه', 'icon': '🚌', 'points': '5-25'},
@@ -185,6 +106,7 @@ def create_games_menu():
         {'name': 'الحروف المبعثرة', 'cmd': 'مبعثر', 'icon': '🔤', 'points': '5'},
         {'name': 'البحث عن الكنز', 'cmd': 'كنز', 'icon': '🗝️', 'points': '15'}
     ]
+    
     contents = []
     for game in games_list:
         contents.extend([
@@ -198,6 +120,7 @@ def create_games_menu():
             ]),
             SeparatorComponent(margin='sm')
         ])
+    
     bubble = BubbleContainer(
         header=BoxComponent(layout='vertical', background_color='#8B5CF6', padding_all='15px', contents=[
             TextComponent(text='🎮 قائمة الألعاب', weight='bold', size='xl', color='#ffffff', align='center')
@@ -206,105 +129,10 @@ def create_games_menu():
     )
     return FlexSendMessage(alt_text='قائمة الألعاب', contents=bubble)
 
-# ============================================================
-# 4. بدء الألعاب وإدارة الإجابات
-# ============================================================
-
-# ============================================================
-# 5. إدارة الألعاب والمنطق
-# ============================================================
-
-def start_atobus_game(group_id):
-    letter = random.choice(ATOBUS_LETTERS)
-    chat_states[group_id] = {
-        'game': 'atobus',
-        'letter': letter,
-        'answers': {},
-        'end_time': datetime.now() + timedelta(seconds=GAME_CONFIGS['atobus']['duration'])
-    }
-    line_bot_api.broadcast(TextSendMessage(
-        text=f"🚌 لعبة إنسان حيوان نبات جماد! الحرف هو: {letter}\nلديكم {GAME_CONFIGS['atobus']['duration']} ثانية!"
-    ))
-
-def handle_atobus_answer(group_id, user_id, answer_text):
-    state = chat_states.get(group_id)
-    if not state or state.get('game') != 'atobus': return
-    answers = state['answers']
-    answers[user_id] = answer_text
-    # تحقق من صحة الإجابة يمكن تحسينه لاحقًا
-
-def end_atobus_game(group_id):
-    state = chat_states.pop(group_id, None)
-    if not state: return
-    results_text = "🎉 انتهت لعبة إنسان حيوان نبات! النتائج:\n"
-    for uid, ans in state['answers'].items():
-        points = GAME_CONFIGS['atobus']['points']
-        db_add_points(uid, points, 'atobus')
-        name = user_id_to_name.get(uid, uid)
-        results_text += f"{name}: {ans} → +{points} نقاط\n"
-    line_bot_api.broadcast(TextSendMessage(text=results_text))
-
-# مثال لعبة أسرع كلمة
-def start_speed_word(group_id, category='فئة', letter='أ'):
-    chat_states[group_id] = {
-        'game': 'speed_word',
-        'letter': letter,
-        'winner': None,
-        'end_time': datetime.now() + timedelta(seconds=GAME_CONFIGS['speed_word']['duration'])
-    }
-    line_bot_api.broadcast(TextSendMessage(
-        text=f"⚡ لعبة أسرع كلمة!\nالفئة: {category}\nالحرف: {letter}\nأسرع واحد يكتب الكلمة الصحيحة!"
-    ))
-
-def handle_speed_word_answer(group_id, user_id, answer_text):
-    state = chat_states.get(group_id)
-    if not state or state.get('game') != 'speed_word' or state.get('winner'): return
-    if answer_text.startswith(state['letter']):  # شرط مبدئي
-        state['winner'] = user_id
-        points = GAME_CONFIGS['speed_word']['points']
-        db_add_points(user_id, points, 'speed_word', won=True)
-        name = user_id_to_name.get(user_id, user_id)
-        line_bot_api.broadcast(TextSendMessage(
-            text=f"🎉 الفائز هو {name}! حصل على {points} نقطة"
-        ))
-
-# ============================================================
-# 6. أوامر المساعدة والمحتوى الثابت
-# ============================================================
-
-HELP_TEXT = """
-📌 أوامر البوت:
-
-🎮 الألعاب:
-- لعبه → إنسان حيوان نبات جماد
-- سلسلة → سلسلة الكلمات
-- أسرع → أسرع كلمة
-- مبعثر → الحروف المبعثرة
-- كنز → البحث عن الكنز
-
-📊 النقاط والملف الشخصي:
-- نقاطي → عرض نقاطك ومستواك
-- متصدرين → لوحة المتصدرين
-
-✨ ترفيه ومحتوى:
-- نصيحة → نصيحة اليوم
-- توافق → نسبة توافق بين اسمين
-"""
-
-def handle_help_command(user_id):
-    line_bot_api.push_message(user_id, TextSendMessage(text=HELP_TEXT))
-
-def handle_daily_tip(user_id):
-    tip = random.choice(DAILY_TIPS)
-    line_bot_api.push_message(user_id, TextSendMessage(text=f"💡 نصيحة اليوم:\n{tip}"))
-
-# ============================================================
-# 7. Webhook & Event Handling
-# ============================================================
-
+# ===== Webhook LINE =====
 @app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers.get('X-Line-Signature')
+    signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
@@ -314,76 +142,79 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    user_message = event.message.text.strip()
     user_id = event.source.user_id
-    group_id = event.source.group_id if hasattr(event.source, 'group_id') else user_id
-    text = event.message.text.strip()
+    reply_token = event.reply_token
     
-    # تسجيل الاسم
     if user_id not in user_id_to_name:
-        try:
-            profile = line_bot_api.get_profile(user_id)
-            user_id_to_name[user_id] = profile.display_name
-        except:
-            user_id_to_name[user_id] = f"لاعب {user_id[-4:]}"
+        try: user_id_to_name[user_id] = line_bot_api.get_profile(user_id).display_name
+        except: user_id_to_name[user_id] = f"لاعب{user_id[-4:]}"
     
-    # أوامر مساعدة
-    if text.lower() in ['مساعدة', '/help']:
-        handle_help_command(user_id)
-        return
+    command = user_message.lower()
     
-    if text.lower() in ['نصيحة', '/tip']:
-        handle_daily_tip(user_id)
-        return
-    
-    if text.lower() in ['نقاطي', '/points']:
-        flex = create_profile_card(user_id)
-        if flex: line_bot_api.push_message(user_id, flex)
-        return
-    
-    if text.lower() in ['متصدرين', '/top', '/leaderboard']:
-        flex = create_leaderboard_flex()
-        if flex: line_bot_api.push_message(user_id, flex)
+    # --- أوامر المساعدة ---
+    if command in ['مساعدة', 'help', 'مس', 'مساعده']:
+        qr = QuickReply(items=[
+            QuickReplyButton(action=MessageAction(label="🎮 الألعاب", text="ألعاب")),
+            QuickReplyButton(action=MessageAction(label="👤 ملفي", text="ملفي")),
+            QuickReplyButton(action=MessageAction(label="🏆 المتصدرين", text="متصدرين")),
+            QuickReplyButton(action=MessageAction(label="نصيحة", text="نصيحة"))
+        ])
+        help_msg = ("🎮 **بوت الألعاب** 🎮\n\n"
+                    "• الألعاب: لعبه | سلسلة | أسرع | مبعثر | كنز\n"
+                    "• الإحصائيات: ملفي | نقاطي | متصدرين\n"
+                    "• ترفيه: توافق [اسم1] [اسم2] | نصيحة")
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=help_msg, quick_reply=qr))
         return
     
-    # ألعاب
-    if text.startswith('لعبه'):
-        start_atobus_game(group_id)
+    # --- قائمة الألعاب ---
+    if command in ['ألعاب', 'العاب', 'القائمة']:
+        line_bot_api.reply_message(reply_token, create_games_menu())
         return
-    if text.startswith('أسرع'):
-        start_speed_word(group_id)
+    
+    # --- المتصدرين ---
+    if command in ['متصدرين', 'top', 'leaderboard']:
+        leaderboard = db_get_leaderboard()
+        msg = "🏆 **أفضل اللاعبين** 🏆\n\n"
+        for idx, (name, points, level, won) in enumerate(leaderboard, 1):
+            msg += f"{idx}. {name} | نقاط: {points} | مستوى: {level} | انتصارات: {won}\n"
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=msg))
         return
-    # المزيد من الألعاب يمكن إضافتها بنفس النمط
+    
+    # --- ملف المستخدم ---
+    if command in ['ملفي', 'نقاطي']:
+        stats = db_get_stats(user_id)
+        if stats:
+            msg = (f"👤 {stats['display_name']}\n"
+                   f"🏆 النقاط: {stats['total_points']}\n"
+                   f"🎮 الألعاب: {stats['games_played']}\n"
+                   f"🥇 انتصارات: {stats['games_won']}\n"
+                   f"📊 المستوى: {stats['level']}")
+            line_bot_api.reply_message(reply_token, TextSendMessage(text=msg))
+        else:
+            line_bot_api.reply_message(reply_token, TextSendMessage(text="لم يتم تسجيلك بعد! ابدأ بلعب أي لعبة."))
+        return
+    
+    # --- نصيحة ---
+    if command in ['نصيحة', 'نصايح']:
+        tips = [
+            "ابتسم اليوم وابدأ بداية جديدة!",
+            "النجاح يحتاج صبر ومثابرة.",
+            "تعلم شيئًا جديدًا كل يوم.",
+            "الصحة أهم من كل شيء، اهتم بنفسك!"
+        ]
+        line_bot_api.reply_message(reply_token, TextSendMessage(text=random.choice(tips)))
+        return
+    
+    # --- أي أوامر أخرى غير معروفة ---
+    line_bot_api.reply_message(reply_token, TextSendMessage(text="⚠️ أمر غير معروف، اكتب 'مساعدة' لعرض الأوامر"))
 
-    # التعامل مع الإجابات أثناء الألعاب
-    state = chat_states.get(group_id)
-    if state:
-        game_type = state['game']
-        if game_type == 'atobus':
-            handle_atobus_answer(group_id, user_id, text)
-        elif game_type == 'speed_word':
-            handle_speed_word_answer(group_id, user_id, text)
-
-# ============================================================
-# 8. جدولة نهاية الألعاب
-# ============================================================
-
-def check_game_timers():
-    now = datetime.now()
-    to_end = []
-    for group_id, state in chat_states.items():
-        if now >= state['end_time']:
-            to_end.append(group_id)
-    for gid in to_end:
-        game_type = chat_states[gid]['game']
-        if game_type == 'atobus':
-            end_atobus_game(gid)
-        chat_states.pop(gid, None)
-
-scheduler.add_job(check_game_timers, 'interval', seconds=3)
-
-# ============================================================
-# 9. تشغيل السيرفر
-# ============================================================
+# ===== الصحة =====
+@app.route("/", methods=['GET'])
+def health_check():
+    return {"status": "healthy", "active_games": len(chat_states), "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get('PORT', 8000))
+    print(f"Bot running on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
