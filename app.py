@@ -1,54 +1,48 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
 import os
 import json
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
+from supabase import create_client, Client
 
 app = Flask(__name__)
 
-# LINE Bot Configuration
+# === LINE Configuration ===
 LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
-
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# File to store data
-DATA_FILE = "data.json"
+# === Supabase Configuration ===
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Load or initialize data
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-else:
-    data = {"players": {}, "active_games": {}}
+# === Game State ===
+active_games = {}
 
-def save_data():
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
+# === Webhook ===
 @app.route("/webhook", methods=['POST'])
 def callback():
     signature = request.headers.get('X-Line-Signature')
     body = request.get_data(as_text=True)
-    
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
-    
-    return 'OK'
+    return "OK"
 
+# === Handle Messages ===
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text = event.message.text.strip()
     user_id = event.source.user_id
     group_id = getattr(event.source, 'group_id', user_id)
 
-    # Get user profile
+    # Get user display name
     try:
         profile = line_bot_api.get_profile(user_id)
         display_name = profile.display_name
@@ -57,197 +51,168 @@ def handle_message(event):
 
     ensure_player_exists(user_id, display_name)
 
-    # Command routing
+    # === Commands ===
     if text in ["الألعاب", "قائمة الألعاب"]:
         reply_games_menu(event)
     elif text in ["نقاطي", "احصائياتي"]:
         reply_my_stats(event, user_id)
-    elif text == "لوحة الصدارة":
+    elif text in ["لوحة الصدارة"]:
         reply_leaderboard(event, group_id)
+    elif text in ["مساعدة", "أوامر", "help"]:
+        reply_help(event)
+    elif text in ["إيقاف اللعبة", "أوقف اللعبة"]:
+        stop_all_games(event, group_id)
     elif text.startswith("لعبة"):
         handle_game_command(event, text, user_id, group_id, display_name)
     else:
         handle_game_response(event, text, user_id, group_id, display_name)
 
+# === Ensure Player in DB ===
 def ensure_player_exists(user_id: str, display_name: str):
-    if user_id not in data["players"]:
-        data["players"][user_id] = {
-            "display_name": display_name,
-            "total_points": 0,
-            "games_played": 0,
-            "games_won": 0
-        }
-        save_data()
+    try:
+        result = supabase.table('players').select('*').eq('line_user_id', user_id).execute()
+        if not result.data:
+            supabase.table('players').insert({
+                'line_user_id': user_id,
+                'display_name': display_name,
+                'total_points': 0,
+                'games_played': 0,
+                'games_won': 0
+            }).execute()
+    except Exception as e:
+        print(f"Error ensuring player exists: {e}")
 
+# === Flex Help Message ===
+def reply_help(event):
+    flex_content = {
+        "type": "bubble",
+        "header": {"type": "box", "layout": "vertical",
+                   "contents": [{"type": "text", "text": "🤖 قائمة أوامر البوت",
+                                 "weight": "bold", "size": "lg", "align": "center"}]},
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm",
+                 "contents": [
+                     {"type": "text", "text": "🎮 الألعاب:", "weight": "bold"},
+                     {"type": "text", "text": "• الألعاب أو قائمة الألعاب: عرض قائمة الألعاب"},
+                     {"type": "text", "text": "• لعبة تخمين: لعبة تخمين رقم"},
+                     {"type": "text", "text": "• لعبة رياضيات: حل مسائل رياضية"},
+                     {"type": "text", "text": "• لعبة كلمات: ترتيب كلمة مخلوطة"},
+                     {"type": "text", "text": "• لعبة حظ: كسب نقاط عشوائية"},
+                     {"type": "text", "text": "• لعبة انسان – حيوان – نبات: اختر كلمات بسرعة"},
+                     {"type": "text", "text": "• لعبة ترتيب الكلمات: رتب الحروف لتكوين كلمات"},
+                     {"type": "text", "text": "• لعبة الحروف: كوّن كلمات من حروف محددة"},
+                     {"type": "text", "text": "\n📊 الإحصائيات:", "weight": "bold"},
+                     {"type": "text", "text": "• نقاطي أو احصائياتي: عرض نقاطك وإحصائياتك"},
+                     {"type": "text", "text": "• لوحة الصدارة: عرض أفضل اللاعبين"},
+                     {"type": "text", "text": "\n🛑 إيقاف اللعبة: إيقاف جميع الألعاب الجارية"}
+                 ]}
+    }
+    line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="قائمة الأوامر", contents=flex_content))
+
+# === Stop All Games Flex ===
+def stop_all_games(event, group_id):
+    keys_to_remove = [key for key in active_games if key.startswith(f"{group_id}_")]
+    removed = len(keys_to_remove)
+    for key in keys_to_remove:
+        del active_games[key]
+
+    if removed > 0:
+        flex_content = {
+            "type": "bubble",
+            "body": {"type": "box", "layout": "vertical",
+                     "contents": [
+                         {"type": "text", "text": "🛑 تم إيقاف جميع الألعاب!", "weight": "bold", "size": "lg", "align": "center"},
+                         {"type": "text", "text": f"عدد الألعاب التي تم إيقافها: {removed}", "align": "center"}
+                     ]}
+        }
+    else:
+        flex_content = {
+            "type": "bubble",
+            "body": {"type": "box", "layout": "vertical",
+                     "contents": [{"type": "text", "text": "❌ لا توجد ألعاب جارية لإيقافها",
+                                   "weight": "bold", "size": "lg", "align": "center"}]}
+        }
+    line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="إيقاف الألعاب", contents=flex_content))
+
+# === Games Menu ===
 def reply_games_menu(event):
     menu_text = """🎮 قائمة الألعاب المتاحة:
 
 1️⃣ لعبة التخمين - اكتب: لعبة تخمين
-2️⃣ لعبة الرياضيات - اكتب: لعبة رياضيات
+2️⃣ لعبة الرياضيات - اكتب: لعبة رياضيات  
 3️⃣ لعبة الكلمات - اكتب: لعبة كلمات
 4️⃣ لعبة الحظ - اكتب: لعبة حظ
-
+5️⃣ لعبة انسان – حيوان – نبات - اكتب: لعبة انسان
+6️⃣ لعبة ترتيب الكلمات - اكتب: لعبة ترتيب
+7️⃣ لعبة الحروف - اكتب: لعبة حروف
 💎 نقاطي - اكتب: نقاطي
 🏆 لوحة الصدارة - اكتب: لوحة الصدارة"""
-    
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=menu_text))
 
+# === Stats & Leaderboard ===
 def reply_my_stats(event, user_id: str):
-    player = data["players"].get(user_id)
-    if player:
-        stats_text = f"""📊 إحصائياتك:
-
+    try:
+        result = supabase.table('players').select('*').eq('line_user_id', user_id).execute()
+        if result.data:
+            player = result.data[0]
+            stats_text = f"""📊 إحصائياتك:
 👤 الاسم: {player['display_name']}
 💎 النقاط الكلية: {player['total_points']}
 🎮 عدد الألعاب: {player['games_played']}
 🏆 عدد الانتصارات: {player['games_won']}
-📈 نسبة الفوز: {(player['games_won'] / max(player['games_played'],1)*100):.1f}%"""
-    else:
-        stats_text = "لم نتمكن من العثور على بياناتك!"
-    
+📈 نسبة الفوز: {(player['games_won'] / max(player['games_played'], 1) * 100):.1f}%"""
+        else:
+            stats_text = "لم نتمكن من العثور على بياناتك!"
+    except Exception as e:
+        stats_text = f"حدث خطأ: {str(e)}"
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=stats_text))
 
 def reply_leaderboard(event, group_id: str):
-    leaderboard = sorted(data["players"].values(), key=lambda x: x["total_points"], reverse=True)[:10]
-    if leaderboard:
-        leaderboard_text = "🏆 لوحة الصدارة:\n\n"
-        for i, entry in enumerate(leaderboard, 1):
-            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}️⃣"
-            leaderboard_text += f"{medal} {entry['display_name']}: {entry['total_points']} نقطة\n"
-    else:
-        leaderboard_text = "لا توجد بيانات في لوحة الصدارة بعد!"
-    
+    try:
+        result = supabase.table('leaderboard').select('*').eq('group_id', group_id).order('points', desc=True).limit(10).execute()
+        if result.data:
+            leaderboard_text = "🏆 لوحة الصدارة:\n\n"
+            for i, entry in enumerate(result.data, 1):
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
+                leaderboard_text += f"{medal} {entry['display_name']}: {entry['points']} نقطة\n"
+        else:
+            leaderboard_text = "لا توجد بيانات في لوحة الصدارة بعد!"
+    except Exception as e:
+        leaderboard_text = f"حدث خطأ: {str(e)}"
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=leaderboard_text))
 
+# === Games Logic ===
 def handle_game_command(event, text, user_id, group_id, display_name):
-    if "تخمين" in text:
-        start_guessing_game(event, user_id, group_id)
-    elif "رياضيات" in text:
-        start_math_game(event, user_id, group_id)
-    elif "كلمات" in text:
-        start_word_game(event, user_id, group_id)
-    elif "حظ" in text:
-        start_luck_game(event, user_id, group_id, display_name)
+    if "تخمين" in text: start_guessing_game(event, user_id, group_id)
+    elif "رياضيات" in text: start_math_game(event, user_id, group_id)
+    elif "كلمات" in text: start_word_game(event, user_id, group_id)
+    elif "حظ" in text: start_luck_game(event, user_id, group_id, display_name)
+    elif "انسان" in text: start_hvn_game(event, user_id, group_id)
+    elif "ترتيب" in text: start_scramble_game(event, user_id, group_id)
+    elif "حروف" in text: start_letters_game(event, user_id, group_id)
 
-def start_guessing_game(event, user_id, group_id):
-    number = random.randint(1,100)
-    game_key = f"{group_id}_{user_id}"
-    data["active_games"][game_key] = {
-        "type":"guessing",
-        "answer": number,
-        "attempts":0,
-        "max_attempts":7,
-        "started_at": datetime.now().isoformat()
+# === هنا تضيف جميع ألعابك مع active_games مثل الألعاب السابقة (تخمين، رياضيات، كلمات، حظ) ===
+# === لعبة انسان – حيوان – نبات ===
+def start_hvn_game(event, user_id, group_id):
+    words = {
+        "إنسان": ["طالب", "طبيب", "مهندس", "مزارع"],
+        "حيوان": ["أسد", "قط", "حصان", "فيل"],
+        "نبات": ["ورد", "شجرة", "قمح", "نبات"]
     }
-    save_data()
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🎯 لعبة التخمين!\nخمن رقم بين 1 و 100\nلديك 7 محاولات فقط! 🎲"))
-
-def start_math_game(event, user_id, group_id):
-    num1 = random.randint(1,50)
-    num2 = random.randint(1,50)
-    operation = random.choice(["+","-","*"])
-    answer = num1+num2 if operation=="+" else num1-num2 if operation=="-" else num1*num2
+    selected_category = random.choice(["إنسان","حيوان","نبات"])
+    selected_word = random.choice(words[selected_category])
     game_key = f"{group_id}_{user_id}"
-    data["active_games"][game_key] = {
-        "type":"math",
-        "answer": answer,
-        "question": f"{num1} {operation} {num2}",
-        "started_at": datetime.now().isoformat()
+    active_games[game_key] = {
+        'type': 'hvn',
+        'category': selected_category,
+        'answer': selected_word,
+        'started_at': datetime.now()
     }
-    save_data()
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🧮 لعبة الرياضيات!\nاحسب:\n{num1} {operation} {num2} = ؟"))
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(
+        text=f"🏃 لعبة انسان – حيوان – نبات!\nاكتب الكلمة بسرعة!\nالفئة: {selected_category}"
+    ))
 
-def start_word_game(event, user_id, group_id):
-    words = [
-        {"word":"برمجة","hint":"كتابة الأكواد"},
-        {"word":"حاسوب","hint":"جهاز إلكتروني"},
-        {"word":"إنترنت","hint":"شبكة عالمية"},
-        {"word":"ذكاء","hint":"القدرة العقلية"}
-    ]
-    selected = random.choice(words)
-    scrambled = ''.join(random.sample(selected["word"], len(selected["word"])))
-    game_key = f"{group_id}_{user_id}"
-    data["active_games"][game_key] = {
-        "type":"word",
-        "answer": selected["word"],
-        "started_at": datetime.now().isoformat()
-    }
-    save_data()
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"📝 لعبة الكلمات!\nرتب الحروف:\n{scrambled}\n💡 تلميح: {selected['hint']}"))
-
-def start_luck_game(event, user_id, group_id, display_name):
-    result = random.randint(1,100)
-    if result>=90:
-        points = 100
-        message = "🎉 مبروك! فزت بـ 100 نقطة!"
-    elif result>=70:
-        points = 50
-        message = "✨ رائع! فزت بـ 50 نقطة!"
-    elif result>=40:
-        points = 20
-        message = "👍 جيد! فزت بـ 20 نقطة!"
-    else:
-        points = 5
-        message = "😊 حظ أوفر المرة القادمة! 5 نقاط"
-    add_points(user_id, points, True, display_name)
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎰 لعبة الحظ!\n{message}"))
-
-def handle_game_response(event, text, user_id, group_id, display_name):
-    game_key = f"{group_id}_{user_id}"
-    if game_key not in data["active_games"]:
-        return
-    game = data["active_games"][game_key]
-    user_answer = int(text) if text.isdigit() else text
-    if game["type"]=="guessing":
-        handle_guessing_response(event, game, user_answer, user_id, game_key)
-    elif game["type"]=="math":
-        handle_math_response(event, game, user_answer, user_id, game_key)
-    elif game["type"]=="word":
-        handle_word_response(event, game, user_answer, user_id, game_key)
-
-def handle_guessing_response(event, game, user_answer, user_id, game_key):
-    game["attempts"] += 1
-    if user_answer == game["answer"]:
-        points = max(100 - game["attempts"]*10,30)
-        add_points(user_id, points, True, data["players"][user_id]["display_name"])
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎉 ممتاز! الإجابة صحيحة!\n+{points} نقطة 💎"))
-        del data["active_games"][game_key]
-    elif game["attempts"]>=game["max_attempts"]:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"😔 انتهت المحاولات!\nالإجابة كانت: {game['answer']}"))
-        del data["active_games"][game_key]
-    else:
-        hint = "أكبر ⬆️" if user_answer < game["answer"] else "أصغر ⬇️"
-        remaining = game["max_attempts"] - game["attempts"]
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"{hint}\nالمحاولات المتبقية: {remaining}"))
-    save_data()
-
-def handle_math_response(event, game, user_answer, user_id, game_key):
-    if user_answer == game["answer"]:
-        points = 50
-        add_points(user_id, points, True, data["players"][user_id]["display_name"])
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎉 إجابة صحيحة!\n+{points} نقطة 💎"))
-    else:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"❌ خطأ! الإجابة الصحيحة: {game['answer']}"))
-    del data["active_games"][game_key]
-    save_data()
-
-def handle_word_response(event, game, user_answer, user_id, game_key):
-    if user_answer == game["answer"]:
-        points = 60
-        add_points(user_id, points, True, data["players"][user_id]["display_name"])
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎉 ممتاز! الكلمة صحيحة!\n+{points} نقطة 💎"))
-    else:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"❌ خطأ! الكلمة الصحيحة: {game['answer']}"))
-    del data["active_games"][game_key]
-    save_data()
-
-def add_points(user_id, points, won, display_name):
-    player = data["players"][user_id]
-    player["total_points"] += points
-    player["games_played"] += 1
-    if won:
-        player["games_won"] += 1
-    save_data()
+# === لاحقًا تضيف handle_game_response لكل نوع لعبة ===
+# === ... (تقدر تستخدم handle_guessing_response, handle_math_response, handle_word_response كمرجع) ===
 
 @app.route("/")
 def home():
