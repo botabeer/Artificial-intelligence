@@ -24,7 +24,6 @@ FORTUNE = ["حظ اليوم 1", "حظ اليوم 2", "حظ اليوم 3"]
 
 # ===== دوال الألعاب الأساسية (أمثلة) =====
 def get_user_data(user_id):
-    # مثال لتخزين حالة اللعبة الحالية
     return {"current_game": None}
 
 def rock_paper_scissors(user_id, choice):
@@ -135,10 +134,8 @@ def get_user_points(user_id):
 def get_leaderboard():
     return "المتصدرين:\n1- محمد\n2- علي\n3- فاطمة"
 
-# ===== دالة إنشاء Carousel لجميع الألعاب =====
+# ===== دالة إنشاء Carousel واحد لكل الألعاب 40 لعبة =====
 def create_games_carousel():
-    # مثال: إنشاء 40 لعبة في Carousel (نقسمها إلى 5 صفحات × 8 ألعاب)
-    carousels = []
     all_games = [
         "حجر ورقة مقص", "تخمين رقم", "رقم عشوائي", "اقتباس", "لغز", "سؤال", "صح أو خطأ",
         "تخمين ايموجي", "قلب كلمة", "ملخبط", "ترتيب", "اكتب بسرعة", "حرب الكلمات", "ذاكرة الإيموجي",
@@ -147,22 +144,20 @@ def create_games_carousel():
         "لعبة 29", "لعبة 30", "لعبة 31", "لعبة 32", "لعبة 33", "لعبة 34", "لعبة 35", "لعبة 36",
         "لعبة 37", "لعبة 38", "لعبة 39", "لعبة 40"
     ]
-    for i in range(0, len(all_games), 8):
-        columns = []
-        for game in all_games[i:i+8]:
-            columns.append(
-                CarouselColumn(
-                    text=game,
-                    title="🎮 الألعاب",
-                    actions=[MessageAction(label=game, text=game)]
-                )
+    columns = []
+    for game in all_games:
+        columns.append(
+            CarouselColumn(
+                text=game,
+                title="🎮 الألعاب",
+                actions=[MessageAction(label=game, text=game)]
             )
-        carousel_template = TemplateSendMessage(
-            alt_text="🎮 قائمة الألعاب",
-            template=CarouselTemplate(columns=columns)
         )
-        carousels.append(carousel_template)
-    return carousels
+    carousel_template = TemplateSendMessage(
+        alt_text="🎮 قائمة الألعاب",
+        template=CarouselTemplate(columns=columns)
+    )
+    return carousel_template
 
 # ===== Webhook =====
 @app.route("/callback", methods=['POST'])
@@ -184,12 +179,10 @@ def handle_message(event):
     
     # مساعدة أو قائمة
     if text.lower() in ['مساعدة', 'قائمة', 'الأوامر', 'help', 'start', 'القائمة']:
-        carousels = create_games_carousel()
-        for carousel in carousels:
-            line_bot_api.reply_message(event.reply_token, carousel)
+        carousel = create_games_carousel()
+        line_bot_api.reply_message(event.reply_token, carousel)
         return
     
-    # ===== باقي الألعاب كما في الكود السابق =====
     # حجر ورقة مقص
     if text == 'حجر ورقة مقص':
         quick_reply = QuickReply(items=[
@@ -203,7 +196,7 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=rock_paper_scissors(user_id, text)))
         return
     
-    # مثال لألعاب أخرى (يمكن تكرار النمط لكل الألعاب كما في كودك الأصلي)
+    # مثال لألعاب أخرى
     if text == 'تخمين رقم':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=guess_number_start(user_id)))
         return
@@ -219,22 +212,6 @@ def handle_message(event):
     
     if text == 'اقتباس':
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"💭 {random.choice(QUOTES)}"))
-        return
-    
-    if text == 'لغز':
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=ask_riddle(user_id)))
-        return
-    if text.startswith('جواب:'):
-        answer = text.replace('جواب:', '').strip()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=check_riddle(user_id, answer)))
-        return
-    
-    if text == 'سؤال':
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=ask_question(user_id)))
-        return
-    if text.startswith('إجابة:'):
-        answer = text.replace('إجابة:', '').strip()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=check_question_answer(user_id, answer)))
         return
     
     # محتوى ترفيهي
