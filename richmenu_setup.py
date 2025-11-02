@@ -45,7 +45,7 @@ rich_menu_id = line_bot_api.create_rich_menu(rich_menu=rich_menu_to_create)
 print("Rich Menu ID:", rich_menu_id)
 
 # رفع صورة الخلفية (يُفضل 2500x1686 PNG)
-with open("richmenu_bg.png", 'rb') as f:
+with open("https://k.top4top.io/p_3593i27391.png", 'rb') as f:
     line_bot_api.set_rich_menu_image(rich_menu_id, "image/png", f)
 
 # ربط القائمة بالحساب
