@@ -59,7 +59,7 @@ games = {
 active_games = {}  # لتخزين الألعاب النشطة
 
 # ==========================
-# Quick Reply للأوامر
+# Quick Reply ثابت لجميع الرسائل
 # ==========================
 def get_quick_reply_games():
     return QuickReply(items=[
@@ -76,30 +76,6 @@ def get_quick_reply_games():
         QuickReplyButton(action=MessageAction(label="⏹️ إيقاف", text="إيقاف")),
         QuickReplyButton(action=MessageAction(label="مساعدة", text="مساعدة")),
     ])
-
-# ==========================
-# أوامر المساعدة
-# ==========================
-def get_help_message():
-    return """🎮 مرحباً بك في بوت الألعاب التفاعلية!
-
-📋 الأوامر الأساسية:
-• مساعدة - عرض قائمة الأوامر
-• الصدارة - عرض أفضل اللاعبين
-• نقاطي - عرض نقاطك الحالية
-• إيقاف - إيقاف اللعبة الحالية
-
-🎯 الألعاب المتاحة:
-🏃 سرعة - أسرع كتابة
-🌿 لعبة - إجابة بحرف محدد
-🔤 حروف - تكوين كلمات من حروف
-💬 مثل - أكمل المثل الشعبي
-🧩 لغز - حل الألغاز
-🔄 ترتيب - ترتيب الحروف
-🪞 معكوس - كتابة الكلمة معكوسة
-🧠 ذكاء - سؤال ذكاء
-🔗 سلسلة - إكمال سلسلة كلمات
-"""
 
 # ==========================
 # وظائف الألعاب
@@ -180,12 +156,14 @@ def handle_text_message(event):
     if text in ['مساعدة', 'help', '؟', 'المساعدة']:
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=get_help_message(), quick_reply=get_quick_reply_games())
+            TextSendMessage(text="إليك قائمة الأوامر:", quick_reply=get_quick_reply_games())
         )
         return
     
     if text in ['الصدارة', 'leaderboard', '🏆']:
         flex_msg = FlexMessages.create_leaderboard(db.get_leaderboard())
+        # إضافة Quick Reply ثابت
+        flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
     
@@ -194,13 +172,17 @@ def handle_text_message(event):
         rank = db.get_user_rank(user_id)
         stats = db.get_user_stats(user_id)
         flex_msg = FlexMessages.create_user_stats(user_name, points, rank, stats)
+        flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
     
     if text in ['إيقاف', 'stop', 'ايقاف']:
         if stop_game(game_id):
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⏹️ تم إيقاف اللعبة الحالية."))
-        return  # تجاهل إذا لا توجد لعبة نشطة
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text="⏹️ تم إيقاف اللعبة الحالية.", quick_reply=get_quick_reply_games())
+            )
+        return
     
     # ==========================
     # بدء الألعاب
@@ -229,7 +211,7 @@ def handle_text_message(event):
                 event.reply_token,
                 TextSendMessage(
                     text=response_text,
-                    quick_reply=QuickReply(items=[QuickReplyButton(action=MessageAction(label="⏹️ إيقاف", text="إيقاف"))])
+                    quick_reply=get_quick_reply_games()  # Quick Reply ثابت
                 )
             )
         return
@@ -247,13 +229,20 @@ def handle_text_message(event):
                     result['total_points'],
                     result.get('message', '')
                 )
+                flex_msg.quick_reply = get_quick_reply_games()
                 line_bot_api.reply_message(event.reply_token, flex_msg)
             else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result['message']))
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
+                )
         return
     
-    # أي نص آخر يتم تجاهله بالكامل
-    return
+    # أي نص آخر يتم الرد عليه برسالة عامة مع Quick Reply ثابت
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text="اختر أحد الأوامر من الأزرار أدناه:", quick_reply=get_quick_reply_games())
+    )
 
 # ==========================
 # تشغيل التطبيق
