@@ -1,9 +1,4 @@
-# ==========================
-‏# games/letters_words.py
-# 🔠 لعبة استخراج كلمات من حروف
-# ==========================
-
-‏import random
+import random
 
 ‏class LettersWords:
 ‏    def __init__(self):
