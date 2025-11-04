@@ -9,8 +9,13 @@ from linebot.models import (
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+import threading
+import time
+import requests
 
+# ==========================
 # استيراد الألعاب
+# ==========================
 from games.fast_typing import FastTyping
 from games.human_animal_plant import HumanAnimalPlant
 from games.letters_words import LettersWords
@@ -22,14 +27,14 @@ from games.iq_questions import IQQuestions
 from games.scramble_word import ScrambleWord
 from games.chain_words import ChainWords
 
-# استيراد الأدوات المساعدة
 from utils.flex_messages import FlexMessages
 from utils.database import Database
 from utils.gemini_helper import GeminiHelper
 
+# ==========================
 # تحميل المتغيرات البيئية
+# ==========================
 load_dotenv()
-
 app = Flask(__name__)
 
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -39,11 +44,9 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
 
-# تهيئة قاعدة البيانات و Gemini
 db = Database()
 gemini = GeminiHelper(GEMINI_API_KEY)
 
-# تهيئة الألعاب
 games = {
     'fast_typing': FastTyping(),
     'human_animal': HumanAnimalPlant(),
@@ -57,10 +60,10 @@ games = {
     'chain_words': ChainWords(gemini)
 }
 
-active_games = {}  # لتخزين الألعاب النشطة
+active_games = {}
 
 # ==========================
-# Quick Reply ثابت لجميع الرسائل
+# Quick Reply ثابت
 # ==========================
 def get_quick_reply_games():
     return QuickReply(items=[
@@ -79,7 +82,30 @@ def get_quick_reply_games():
     ])
 
 # ==========================
-# إنشاء Flex Message أنعم واحترافي للفائز (ألوان أسود/أبيض/رمادي)
+# Ping داخلي للحفاظ على البوت نشط
+# ==========================
+@app.route("/", methods=["GET"])
+def index():
+    return "Bot is alive!", 200
+
+def keep_alive():
+    port = int(os.environ.get("PORT", 5000))
+    url = f"http://localhost:{port}/"
+    while True:
+        try:
+            requests.get(url)
+            print("✅ Ping sent to keep bot alive")
+        except Exception as e:
+            print(f"⚠️ Ping failed: {e}")
+        time.sleep(300)  # كل 5 دقائق
+
+def start_keep_alive_thread():
+    thread = threading.Thread(target=keep_alive)
+    thread.daemon = True
+    thread.start()
+
+# ==========================
+# Flex Message للفائز
 # ==========================
 def create_winner_flex(name, points):
     bubble = BubbleContainer(
@@ -93,7 +119,7 @@ def create_winner_flex(name, points):
             ],
             spacing="md",
             padding_all="20px",
-            background_color="#F3F4F6",  # رمادي فاتح
+            background_color="#F3F4F6",
             corner_radius="md"
         )
     )
@@ -111,8 +137,8 @@ def start_game(game_type, user_id, group_id=None):
             'data': game_data,
             'user_id': user_id,
             'timestamp': datetime.now().isoformat(),
-            'answered_users': set(),  # لتخزين من جاوب صح أولاً
-            'correct_counts': {},      # عدد الإجابات الصحيحة لكل لاعب
+            'answered_users': set(),
+            'correct_counts': {}
         }
         return game_data
     return None
@@ -125,47 +151,25 @@ def check_answer(game_id, user_id, answer, name):
     game_type = game_info['type']
     game_data = game_info['data']
 
-    # إذا أحدهم جاوب صح من قبل، تجاهل باقي اللاعبين
-    if game_info['answered_users']:
-        return {
-            'correct': False,
-            'message': "⚠️ لقد تم إيجاد الإجابة الصحيحة من قبل لاعب آخر!"
-        }
+    # تجاهل إذا جاوب هذا اللاعب مسبقًا
+    if user_id in game_info.get('answered_users', set()):
+        return {'correct': False, 'message': "⚠️ لقد أجبت بالفعل على هذا السؤال!"}
 
     result = games[game_type].check_answer(game_data, answer)
 
     if result['correct']:
         points = result.get('points', 10)
         db.add_points(user_id, name, points)
-
-        # تسجيل اللاعب الذي جاوب أولاً
         game_info['answered_users'].add(user_id)
-
-        # تحديث عدد الإجابات الصحيحة
-        game_info.setdefault('correct_counts', {})
         game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
 
-        # إعلان الفائز بعد 10 إجابات صحيحة
         if game_info['correct_counts'][user_id] >= 10:
-            del active_games[game_id]  # إنهاء اللعبة
-            return {
-                'correct': True,
-                'final': True,
-                'points': points,
-                'message': f"✅ {name} أكمل 10 إجابات صحيحة!"
-            }
-        else:
-            return {
-                'correct': True,
-                'final': False,
-                'points': points,
-                'message': f"✅ إجابة صحيحة! ({game_info['correct_counts'][user_id]} / 10)"
-            }
+            del active_games[game_id]
+            return {'correct': True, 'final': True, 'points': points, 'message': f"🏆 {name} أكمل 10 إجابات صحيحة!"}
+        return {'correct': True, 'final': False}
+
     else:
-        return {
-            'correct': False,
-            'message': '❌ إجابة خاطئة، حاول مرة أخرى!'
-        }
+        return {'correct': False, 'message': '❌ إجابة خاطئة، حاول مرة أخرى!'}
 
 def stop_game(game_id):
     if game_id in active_games:
@@ -190,17 +194,16 @@ def callback():
 def handle_text_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
-    
     try:
         profile = line_bot_api.get_profile(user_id)
         user_name = profile.display_name
     except:
         user_name = "لاعب"
-    
+
     game_id = getattr(event.source, 'group_id', None) or user_id
-    
+
     # ==========================
-    # الأوامر الأساسية
+    # أوامر المساعدة والردود السريعة
     # ==========================
     if text in ['مساعدة', 'help', '؟', 'المساعدة']:
         line_bot_api.reply_message(
@@ -208,13 +211,13 @@ def handle_text_message(event):
             TextSendMessage(text="إليك قائمة الأوامر:", quick_reply=get_quick_reply_games())
         )
         return
-    
+
     if text in ['الصدارة', 'leaderboard', '🏆']:
         flex_msg = FlexMessages.create_leaderboard(db.get_leaderboard())
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
-    
+
     if text in ['نقاطي', 'نقاط', 'points']:
         points = db.get_user_points(user_id)
         rank = db.get_user_rank(user_id)
@@ -223,7 +226,7 @@ def handle_text_message(event):
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
-    
+
     if text in ['إيقاف', 'stop', 'ايقاف']:
         if stop_game(game_id):
             line_bot_api.reply_message(
@@ -231,10 +234,7 @@ def handle_text_message(event):
                 TextSendMessage(text="⏹️ تم إيقاف اللعبة الحالية.", quick_reply=get_quick_reply_games())
             )
         return
-    
-    # ==========================
-    # بدء الألعاب
-    # ==========================
+
     game_commands = {
         'سرعة': 'fast_typing',
         'لعبة': 'human_animal',
@@ -247,60 +247,50 @@ def handle_text_message(event):
         'ترتيب': 'scramble_word',
         'سلسلة': 'chain_words'
     }
-    
+
     if text in game_commands:
         game_type = game_commands[text]
         game_data = start_game(game_type, user_id, getattr(event.source, 'group_id', None))
         if game_data:
             game_message = game_data.get('question', game_data.get('message', ''))
             emoji = game_data.get('emoji', '🎮')
-            response_text = f"{emoji} {game_message}"
             line_bot_api.reply_message(
                 event.reply_token,
                 TextSendMessage(
-                    text=response_text,
+                    text=f"{emoji} {game_message}",
                     quick_reply=get_quick_reply_games()
                 )
             )
         return
-    
-    # ==========================
-    # التحقق من الإجابة للألعاب النشطة
-    # ==========================
+
     if game_id in active_games:
         result = check_answer(game_id, user_id, text, user_name)
         if result:
             if result['correct']:
                 if result.get('final', False):
-                    # إعلان الفائز بعد 10 إجابات صحيحة باستخدام Flex Message
                     flex_msg = create_winner_flex(user_name, db.get_user_points(user_id))
                     line_bot_api.reply_message(event.reply_token, flex_msg)
                 else:
-                    # رسالة عادية عند الإجابة الصحيحة قبل الوصول للـ10
                     line_bot_api.reply_message(
                         event.reply_token,
-                        TextSendMessage(
-                            text=result['message'],
-                            quick_reply=get_quick_reply_games()
-                        )
+                        TextSendMessage(text=f"✅ إجابة صحيحة! ({active_games.get(game_id, {}).get('correct_counts', {}).get(user_id, 0)}/10)", quick_reply=get_quick_reply_games())
                     )
             else:
-                # إجابة خاطئة أو تجاوز الإجابة الصحيحة
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
                 )
         return
-    
-    # أي نص آخر يتم الرد عليه برسالة عامة مع Quick Reply ثابت
+
     line_bot_api.reply_message(
         event.reply_token,
         TextSendMessage(text="اختر أحد الأوامر من الأزرار أدناه:", quick_reply=get_quick_reply_games())
     )
 
 # ==========================
-# تشغيل التطبيق
+# تشغيل التطبيق + Keep-Alive داخلي
 # ==========================
 if __name__ == "__main__":
+    start_keep_alive_thread()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
