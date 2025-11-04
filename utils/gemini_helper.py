@@ -36,7 +36,6 @@ class GeminiHelper:
 أرجع JSON فقط:
 {{"correct": true/false, "explanation": "سبب قصير"}}
 """
-            
             response = self.model.generate_content(prompt)
             result = json.loads(response.text)
             return result.get('correct', False)
@@ -61,7 +60,6 @@ class GeminiHelper:
 أرجع JSON فقط:
 {{"valid": true/false, "reason": "سبب قصير"}}
 """
-            
             response = self.model.generate_content(prompt)
             result = json.loads(response.text)
             return result.get('valid', False)
@@ -72,50 +70,32 @@ class GeminiHelper:
         """تطبيع الحرف الأخير للكلمة"""
         if not word:
             return ""
-        
-        # إزالة المسافات
         word = word.strip()
-        
-        # معالجة الحروف الخاصة
         last_char = word[-1]
-        
-        # تحويل ة إلى ت
         if last_char == 'ة':
             return 'ت'
-        
-        # تحويل ى إلى ي
         if last_char == 'ى':
             return 'ي'
-        
-        # توحيد الألف
         if last_char in ['أ', 'إ', 'آ']:
             return 'ا'
-        
-        # تجاهل الهمزة في النهاية
         if last_char == 'ء' and len(word) > 1:
             return self.normalize_last_letter(word[:-1])
-        
         return last_char
     
     def check_word_chain(self, previous_word, new_word):
         """التحقق من سلسلة الكلمات"""
         if not previous_word or not new_word:
             return False
-        
         last_letter = self.normalize_last_letter(previous_word)
         first_letter = new_word[0]
-        
-        # توحيد الحرف الأول أيضاً
         if first_letter in ['أ', 'إ', 'آ']:
             first_letter = 'ا'
-        
         return last_letter == first_letter
     
     def generate_random_word(self, category, letter):
         """توليد كلمة عشوائية"""
         if not self.enabled:
             return None
-        
         try:
             prompt = f"""
 أعطني كلمة عربية واحدة فقط:
@@ -124,7 +104,6 @@ class GeminiHelper:
 
 أرجع الكلمة فقط بدون أي شرح.
 """
-            
             response = self.model.generate_content(prompt)
             return response.text.strip()
         except:
@@ -134,7 +113,6 @@ class GeminiHelper:
         """تحليل التشابه بين نصين"""
         if not self.enabled:
             return text1.strip().lower() == text2.strip().lower()
-        
         try:
             prompt = f"""
 قارن بين النصين التاليين وحدد نسبة التشابه:
@@ -145,7 +123,6 @@ class GeminiHelper:
 أرجع JSON فقط:
 {{"similarity": 0.0-1.0, "are_similar": true/false}}
 """
-            
             response = self.model.generate_content(prompt)
             result = json.loads(response.text)
             return result.get('similarity', 0) >= threshold
@@ -156,7 +133,6 @@ class GeminiHelper:
         """استخراج كلمات من حروف معينة"""
         if not self.enabled:
             return []
-        
         try:
             prompt = f"""
 اعطني قائمة من 5-10 كلمات عربية يمكن تكوينها من الحروف التالية:
@@ -170,7 +146,6 @@ class GeminiHelper:
 أرجع JSON فقط:
 {{"words": ["كلمة1", "كلمة2", ...]}}
 """
-            
             response = self.model.generate_content(prompt)
             result = json.loads(response.text)
             return result.get('words', [])
@@ -181,21 +156,17 @@ class GeminiHelper:
         """التحقق من أن الكلمة مكونة من الحروف المتاحة"""
         word_letters = list(word)
         available = list(available_letters)
-        
         for letter in word_letters:
             if letter in available:
                 available.remove(letter)
             else:
                 return False
-        
         return True
     
     def get_hint(self, question, answer):
         """الحصول على تلميح"""
         if not self.enabled:
-            # تلميح بسيط: أول حرفين
             return f"يبدأ بـ: {answer[:2]}..."
-        
         try:
             prompt = f"""
 أعطني تلميح ذكي ومفيد (بدون كشف الإجابة كاملة) للسؤال التالي:
@@ -210,7 +181,6 @@ class GeminiHelper:
 
 أرجع التلميح فقط بدون أي إضافات.
 """
-            
             response = self.model.generate_content(prompt)
             return response.text.strip()
         except:
