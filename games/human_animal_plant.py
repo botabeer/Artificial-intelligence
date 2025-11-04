@@ -1,9 +1,4 @@
-# ==========================
-‏# games/human_animal_plant.py
-# 🌿 لعبة إنسان حيوان نبات
-# ==========================
-
-‏import random
+import random
 
 ‏class HumanAnimalPlant:
 ‏    def __init__(self):
