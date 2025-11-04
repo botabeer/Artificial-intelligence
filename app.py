@@ -1,33 +1,77 @@
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
 import os
 import json
 import random
-from datetime import datetime, timedelta
-from supabase import create_client, Client
+import sqlite3
+from flask import Flask, request, abort
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import TextMessage, TextSendMessage
 
-app = Flask(__name__)
+from dotenv import load_dotenv
 
-# === LINE Configuration ===
-LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
+# === تحميل مفاتيح البيئة ===
+load_dotenv()
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# === Supabase Configuration ===
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# === استدعاء الألعاب ===
+from games import fast_typing, human_animal_plant, letters_words
+from games import proverbs, riddles, reversed_word, mirrored_words
+from games import iq_questions, scramble_word, chain_words
+from utils.flex import لوحة_الصدارة_احترافية
 
-# === Game State ===
-active_games = {}
+# === إعداد Flask ===
+app = Flask(__name__)
 
-# === Webhook ===
-@app.route("/webhook", methods=['POST'])
+# === قاعدة البيانات ===
+DB_PATH = "data/users.db"
+os.makedirs("data", exist_ok=True)
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+cursor = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT PRIMARY KEY,
+    points INTEGER DEFAULT 0
+)
+""")
+conn.commit()
+
+# === إدارة الألعاب الحالية ===
+current_games = {}
+
+# === وظائف مساعدة ونقاط ===
+def إضافة_نقاط(user_id, points):
+    cursor.execute("INSERT OR IGNORE INTO users(user_id) VALUES(?)", (user_id,))
+    cursor.execute("UPDATE users SET points = points + ? WHERE user_id = ?", (points, user_id))
+    conn.commit()
+
+def احصل_على_الصدارة():
+    cursor.execute("SELECT user_id, points FROM users ORDER BY points DESC LIMIT 5")
+    return cursor.fetchall()
+
+def الرد_على_المساعدة():
+    return (
+        "📜 أوامر البوت:\n"
+        "- مساعدة : عرض جميع الأوامر\n"
+        "- الصدارة : عرض لوحة النقاط\n"
+        "- كلمة مقلوبة : لعبة عكس الكلمات\n"
+        "- أكمل المثل : لعبة الأمثال الشعبية\n"
+        "- لغز : لعبة الألغاز والتفكير\n"
+        "- إنسان حيوان نبات : اختيار عشوائي لفئة وحرف\n"
+        "- أسرع كتابة : تحدي سرعة الكتابة\n"
+        "- ترتيب الكلمة : إعادة ترتيب الكلمة الصحيحة\n"
+        "- سلسلة الكلمات : يبدأ بحرف الكلمة السابقة\n"
+        "- إيقاف : يوقف أي لعبة حالية"
+    )
+
+# === مسار الـ Webhook ===
+@app.route("/callback", methods=["POST"])
 def callback():
-    signature = request.headers.get('X-Line-Signature')
+    signature = request.headers.get("X-Line-Signature")
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
@@ -35,189 +79,97 @@ def callback():
         abort(400)
     return "OK"
 
-# === Handle Messages ===
-@handler.add(MessageEvent, message=TextMessage)
+# === الحدث عند استقبال رسالة ===
+@handler.add(TextMessage)
 def handle_message(event):
-    text = event.message.text.strip()
     user_id = event.source.user_id
-    group_id = getattr(event.source, 'group_id', user_id)
+    text = event.message.text.strip()
 
-    # Get user display name
-    try:
-        profile = line_bot_api.get_profile(user_id)
-        display_name = profile.display_name
-    except:
-        display_name = "مستخدم"
+    if text.lower() == "مساعدة":
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=الرد_على_المساعدة())
+        )
+        return
 
-    ensure_player_exists(user_id, display_name)
+    if text.lower() == "الصدارة":
+        اعضاء = احصل_على_الصدارة()
+        flex = لوحة_الصدارة_احترافية(اعضاء)
+        line_bot_api.reply_message(event.reply_token, flex)
+        return
 
-    # === Commands ===
-    if text in ["الألعاب", "قائمة الألعاب"]:
-        reply_games_menu(event)
-    elif text in ["نقاطي", "احصائياتي"]:
-        reply_my_stats(event, user_id)
-    elif text in ["لوحة الصدارة"]:
-        reply_leaderboard(event, group_id)
-    elif text in ["مساعدة", "أوامر", "help"]:
-        reply_help(event)
-    elif text in ["إيقاف اللعبة", "أوقف اللعبة"]:
-        stop_all_games(event, group_id)
-    elif text.startswith("لعبة"):
-        handle_game_command(event, text, user_id, group_id, display_name)
-    else:
-        handle_game_response(event, text, user_id, group_id, display_name)
+    if text.lower() == "كلمة مقلوبة":
+        كلمة = reversed_word.لعبة_كلمة_مقلوبة()
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=f"🔄 الكلمة المقلوبة: {كلمة}"))
+        إضافة_نقاط(user_id, 5)
+        return
 
-# === Ensure Player in DB ===
-def ensure_player_exists(user_id: str, display_name: str):
-    try:
-        result = supabase.table('players').select('*').eq('line_user_id', user_id).execute()
-        if not result.data:
-            supabase.table('players').insert({
-                'line_user_id': user_id,
-                'display_name': display_name,
-                'total_points': 0,
-                'games_played': 0,
-                'games_won': 0
-            }).execute()
-    except Exception as e:
-        print(f"Error ensuring player exists: {e}")
+    if text.lower() == "أكمل المثل":
+        سؤال, جواب = proverbs.لعبة_مثل()
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=f"💬 {سؤال}\nاكتب الإجابة! (+10 نقاط)"))
+        current_games[user_id] = {"type": "proverb", "answer": جواب, "points": 10}
+        return
 
-# === Flex Help Message ===
-def reply_help(event):
-    flex_content = {
-        "type": "bubble",
-        "header": {"type": "box", "layout": "vertical",
-                   "contents": [{"type": "text", "text": "🤖 قائمة أوامر البوت",
-                                 "weight": "bold", "size": "lg", "align": "center"}]},
-        "body": {"type": "box", "layout": "vertical", "spacing": "sm",
-                 "contents": [
-                     {"type": "text", "text": "🎮 الألعاب:", "weight": "bold"},
-                     {"type": "text", "text": "• الألعاب أو قائمة الألعاب: عرض قائمة الألعاب"},
-                     {"type": "text", "text": "• لعبة تخمين: لعبة تخمين رقم"},
-                     {"type": "text", "text": "• لعبة رياضيات: حل مسائل رياضية"},
-                     {"type": "text", "text": "• لعبة كلمات: ترتيب كلمة مخلوطة"},
-                     {"type": "text", "text": "• لعبة حظ: كسب نقاط عشوائية"},
-                     {"type": "text", "text": "• لعبة انسان – حيوان – نبات: اختر كلمات بسرعة"},
-                     {"type": "text", "text": "• لعبة ترتيب الكلمات: رتب الحروف لتكوين كلمات"},
-                     {"type": "text", "text": "• لعبة الحروف: كوّن كلمات من حروف محددة"},
-                     {"type": "text", "text": "\n📊 الإحصائيات:", "weight": "bold"},
-                     {"type": "text", "text": "• نقاطي أو احصائياتي: عرض نقاطك وإحصائياتك"},
-                     {"type": "text", "text": "• لوحة الصدارة: عرض أفضل اللاعبين"},
-                     {"type": "text", "text": "\n🛑 إيقاف اللعبة: إيقاف جميع الألعاب الجارية"}
-                 ]}
-    }
-    line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="قائمة الأوامر", contents=flex_content))
+    if text.lower() == "لغز":
+        سؤال, جواب = riddles.لعبة_لغز()
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=f"🔍 {سؤال}\nاكتب الإجابة! (+15 نقاط)"))
+        current_games[user_id] = {"type": "riddle", "answer": جواب, "points": 15}
+        return
 
-# === Stop All Games Flex ===
-def stop_all_games(event, group_id):
-    keys_to_remove = [key for key in active_games if key.startswith(f"{group_id}_")]
-    removed = len(keys_to_remove)
-    for key in keys_to_remove:
-        del active_games[key]
+    if text.lower() == "إنسان حيوان نبات":
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=human_animal_plant.لعبة_انسان_حيوان_نبات()))
+        return
 
-    if removed > 0:
-        flex_content = {
-            "type": "bubble",
-            "body": {"type": "box", "layout": "vertical",
-                     "contents": [
-                         {"type": "text", "text": "🛑 تم إيقاف جميع الألعاب!", "weight": "bold", "size": "lg", "align": "center"},
-                         {"type": "text", "text": f"عدد الألعاب التي تم إيقافها: {removed}", "align": "center"}
-                     ]}
-        }
-    else:
-        flex_content = {
-            "type": "bubble",
-            "body": {"type": "box", "layout": "vertical",
-                     "contents": [{"type": "text", "text": "❌ لا توجد ألعاب جارية لإيقافها",
-                                   "weight": "bold", "size": "lg", "align": "center"}]}
-        }
-    line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="إيقاف الألعاب", contents=flex_content))
+    if text.lower() == "أسرع كتابة":
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=fast_typing.لعبة_اسرع_كتابة()))
+        return
 
-# === Games Menu ===
-def reply_games_menu(event):
-    menu_text = """🎮 قائمة الألعاب المتاحة:
+    if text.lower() == "ترتيب الكلمة":
+        scrambled, correct = scramble_word.لعبة_ترتيب()
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text=f"🔄 رتب الكلمة: {scrambled}\n(+5 نقاط)"))
+        current_games[user_id] = {"type": "scramble", "answer": correct, "points": 5}
+        return
 
-1️⃣ لعبة التخمين - اكتب: لعبة تخمين
-2️⃣ لعبة الرياضيات - اكتب: لعبة رياضيات  
-3️⃣ لعبة الكلمات - اكتب: لعبة كلمات
-4️⃣ لعبة الحظ - اكتب: لعبة حظ
-5️⃣ لعبة انسان – حيوان – نبات - اكتب: لعبة انسان
-6️⃣ لعبة ترتيب الكلمات - اكتب: لعبة ترتيب
-7️⃣ لعبة الحروف - اكتب: لعبة حروف
-💎 نقاطي - اكتب: نقاطي
-🏆 لوحة الصدارة - اكتب: لوحة الصدارة"""
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=menu_text))
-
-# === Stats & Leaderboard ===
-def reply_my_stats(event, user_id: str):
-    try:
-        result = supabase.table('players').select('*').eq('line_user_id', user_id).execute()
-        if result.data:
-            player = result.data[0]
-            stats_text = f"""📊 إحصائياتك:
-👤 الاسم: {player['display_name']}
-💎 النقاط الكلية: {player['total_points']}
-🎮 عدد الألعاب: {player['games_played']}
-🏆 عدد الانتصارات: {player['games_won']}
-📈 نسبة الفوز: {(player['games_won'] / max(player['games_played'], 1) * 100):.1f}%"""
+    if text.lower() == "سلسلة الكلمات":
+        last_word = chain_words.احصل_على_الكلمة_الأخيرة()
+        if not last_word:
+            line_bot_api.reply_message(event.reply_token,
+                TextSendMessage(text="🎯 ابدأ اللعبة بكتابة أي كلمة!"))
         else:
-            stats_text = "لم نتمكن من العثور على بياناتك!"
-    except Exception as e:
-        stats_text = f"حدث خطأ: {str(e)}"
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=stats_text))
+            line_bot_api.reply_message(event.reply_token,
+                TextSendMessage(text=f"✏️ اكتب كلمة تبدأ بحرف {last_word[-1]}"))
+        return
 
-def reply_leaderboard(event, group_id: str):
-    try:
-        result = supabase.table('leaderboard').select('*').eq('group_id', group_id).order('points', desc=True).limit(10).execute()
-        if result.data:
-            leaderboard_text = "🏆 لوحة الصدارة:\n\n"
-            for i, entry in enumerate(result.data, 1):
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}️⃣"
-                leaderboard_text += f"{medal} {entry['display_name']}: {entry['points']} نقطة\n"
+    if text.lower() == "إيقاف":
+        current_games.pop(user_id, None)
+        line_bot_api.reply_message(event.reply_token,
+            TextSendMessage(text="⏹️ تم إيقاف أي لعبة جارية."))
+        return
+
+    # === التحقق من الإجابة في الألعاب الحالية ===
+    if user_id in current_games:
+        game = current_games[user_id]
+        if text.strip() == game["answer"]:
+            line_bot_api.reply_message(event.reply_token,
+                TextSendMessage(text=f"✅ أحسنت! حصلت على {game['points']} نقاط"))
+            إضافة_نقاط(user_id, game["points"])
+            current_games.pop(user_id)
         else:
-            leaderboard_text = "لا توجد بيانات في لوحة الصدارة بعد!"
-    except Exception as e:
-        leaderboard_text = f"حدث خطأ: {str(e)}"
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=leaderboard_text))
+            line_bot_api.reply_message(event.reply_token,
+                TextSendMessage(text=f"❌ إجابة خاطئة حاول مرة أخرى"))
+        return
 
-# === Games Logic ===
-def handle_game_command(event, text, user_id, group_id, display_name):
-    if "تخمين" in text: start_guessing_game(event, user_id, group_id)
-    elif "رياضيات" in text: start_math_game(event, user_id, group_id)
-    elif "كلمات" in text: start_word_game(event, user_id, group_id)
-    elif "حظ" in text: start_luck_game(event, user_id, group_id, display_name)
-    elif "انسان" in text: start_hvn_game(event, user_id, group_id)
-    elif "ترتيب" in text: start_scramble_game(event, user_id, group_id)
-    elif "حروف" in text: start_letters_game(event, user_id, group_id)
+    # أي رسالة غير معروفة
+    line_bot_api.reply_message(event.reply_token,
+        TextSendMessage(text="⚠️ لم أفهم رسالتك، اكتب 'مساعدة' لعرض الأوامر"))
 
-# === هنا تضيف جميع ألعابك مع active_games مثل الألعاب السابقة (تخمين، رياضيات، كلمات، حظ) ===
-# === لعبة انسان – حيوان – نبات ===
-def start_hvn_game(event, user_id, group_id):
-    words = {
-        "إنسان": ["طالب", "طبيب", "مهندس", "مزارع"],
-        "حيوان": ["أسد", "قط", "حصان", "فيل"],
-        "نبات": ["ورد", "شجرة", "قمح", "نبات"]
-    }
-    selected_category = random.choice(["إنسان","حيوان","نبات"])
-    selected_word = random.choice(words[selected_category])
-    game_key = f"{group_id}_{user_id}"
-    active_games[game_key] = {
-        'type': 'hvn',
-        'category': selected_category,
-        'answer': selected_word,
-        'started_at': datetime.now()
-    }
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(
-        text=f"🏃 لعبة انسان – حيوان – نبات!\nاكتب الكلمة بسرعة!\nالفئة: {selected_category}"
-    ))
-
-# === لاحقًا تضيف handle_game_response لكل نوع لعبة ===
-# === ... (تقدر تستخدم handle_guessing_response, handle_math_response, handle_word_response كمرجع) ===
-
-@app.route("/")
-def home():
-    return "LINE Bot is running! 🤖"
-
+# === تشغيل السيرفر ===
 if __name__ == "__main__":
-    port = int(os.getenv('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
