@@ -1,9 +1,2 @@
-import random
-
-كلمات = ["برمجة", "ذكاء", "مطور", "سرعة"]
-
-def لعبة_ترتيب():
-    كلمة = random.choice(كلمات)
-    حروف = list(كلمة)
-    random.shuffle(حروف)
-    return ''.join(حروف), كلمة
+def scramble_word():
+    return {'message': 'scramble_word.py تعمل', 'points': 5}

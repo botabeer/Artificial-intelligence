@@ -1,3 +1,2 @@
-def لعبة_معكوس_الكلمات():
-    كلمات = ["نار", "بيت", "قلم"]
-    return {كلمة: كلمة[::-1] for كلمة in كلمات}
+def mirrored_words():
+    return {'message': 'mirrored_words.py تعمل', 'points': 5}

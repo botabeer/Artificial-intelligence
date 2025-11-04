@@ -1,6 +1,2 @@
-import random
-
-def لعبة_كلمة_مقلوبة():
-    كلمات = ["مركة", "سلام", "تحدي", "سرعة"]
-    كلمة = random.choice(كلمات)
-    return كلمة[::-1]
+def reversed_word():
+    return {'message': 'reversed_word.py تعمل', 'points': 5}

@@ -1,2 +1,2 @@
-def سؤال_سرعة_الذكاء():
-    return "لو عندك 3 تفاحات وأخذت 2، كم تبقى معك؟", "2"
+def iq_questions():
+    return {'message': 'iq_questions.py تعمل', 'points': 5}
