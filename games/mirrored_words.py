@@ -1,9 +1,4 @@
-# ==========================
-‏# games/mirrored_words.py
-# 🪞 لعبة معكوس الكلمات
-# ==========================
-
-‏import random
+import random
 
 ‏class MirroredWords:
 ‏    def __init__(self):
