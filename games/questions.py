@@ -1,9 +1,4 @@
-# ==========================
-‏# games/questions.py
-# 🧩 لعبة ألغاز وذكاء
-# ==========================
-
-‏import random
+import random
 
 ‏class Questions:
 ‏    def __init__(self):
