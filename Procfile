@@ -1,5 +1,1 @@
-# ==========================
-‏# Procfile (for Render/Heroku)
-# ==========================
-
-‏web: gunicorn main:app
+gunicorn main:app --bind 0.0.0.0:$PORT
