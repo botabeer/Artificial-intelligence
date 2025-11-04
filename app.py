@@ -1,8 +1,3 @@
-# ==========================
-# 🎮 بوت LINE تفاعلي متكامل
-# 🧩 10 ألعاب + نقاط + صدارة + Gemini AI
-# ==========================
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
