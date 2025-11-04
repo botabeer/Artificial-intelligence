@@ -126,16 +126,16 @@ def check_answer(game_id, user_id, answer, name):
     game_type = game_info['type']
     game_data = game_info['data']
 
-    if game_info['answered_users']:
+    if user_id in game_info['answered_users']:
         return {
             'correct': False,
-            'message': "⚠️ تم إيجاد الإجابة الصحيحة من قبل لاعب آخر!"
+            'message': "⚠️ لقد أجبت بالفعل!"
         }
 
     result = games[game_type].check_answer(game_data, answer)
 
     if result['correct']:
-        points = result.get('points', 10)
+        points = result.get('points', 1)
         db.add_points(user_id, name, points)
 
         game_info['answered_users'].add(user_id)
@@ -212,9 +212,7 @@ def handle_text_message(event):
 
     if text in ['نقاطي', 'نقاط', 'points']:
         points = db.get_user_points(user_id)
-        rank = db.get_user_rank(user_id)
-        stats = db.get_user_stats(user_id)
-        flex_msg = FlexMessages.create_user_stats(user_name, points, rank, stats)
+        flex_msg = FlexMessages.create_user_stats(user_name, points)
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
