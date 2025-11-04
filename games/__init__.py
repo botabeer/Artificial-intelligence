@@ -1,12 +1,3 @@
-# ==========================
-# games/__init__.py
-# ==========================
-
-"""
-🎮 Games Module
-جميع الألعاب التفاعلية
-"""
-
 from .fast_typing import FastTyping
 from .human_animal_plant import HumanAnimalPlant
 from .letters_words import LettersWords
