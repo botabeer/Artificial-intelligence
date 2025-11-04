@@ -86,43 +86,43 @@ def get_help_message():
 🎯 **الألعاب المتاحة:**
 
 1️⃣ **أسرع كتابة** (10 نقاط)
-   الأمر: !سرعة
+   الأمر: سرعة
    أول من يكتب الكلمة يفوز!
 
-2️⃣ **إنسان حيوان نبات** (10 نقاط)
-   الأمر: !انسان
+2️⃣ **لعبة** (10 نقاط)
+   الأمر: لعبة
    أجب بكلمة تبدأ بالحرف المطلوب
 
 3️⃣ **استخراج كلمات** (5 نقاط/كلمة)
-   الأمر: !حروف
+   الأمر: حروف
    كوّن كلمات من الحروف المعطاة
 
 4️⃣ **أكمل المثل** (10 نقاط)
-   الأمر: !مثل
+   الأمر: مثل
    أكمل المثل الشعبي
 
 5️⃣ **ألغاز وذكاء** (15 نقاط)
-   الأمر: !لغز
+   الأمر: لغز
    حل اللغز بذكاء
 
 6️⃣ **الكلمة المقلوبة** (5 نقاط)
-   الأمر: !مقلوب
+   الأمر: مقلوب
    اقرأ الكلمة بالعكس
 
 7️⃣ **معكوس الكلمات** (5 نقاط)
-   الأمر: !معكوس
+   الأمر: معكوس
    اكتب الكلمة معكوسة
 
 8️⃣ **سؤال ذكاء** (10 نقاط)
-   الأمر: !ذكاء
+   الأمر: ذكاء
    أجب على السؤال السريع
 
 9️⃣ **ترتيب الكلمة** (10 نقاط)
-   الأمر: !ترتيب
+   الأمر: ترتيب
    رتب الحروف الملخبطة
 
 🔟 **سلسلة الكلمات** (10 نقاط)
-   الأمر: !سلسلة
+   الأمر: سلسلة
    أكمل السلسلة بكلمة تبدأ بآخر حرف
 
 ✨ **ملاحظة:** البوت يستخدم الذكاء الاصطناعي للتحقق من الإجابات!
@@ -132,15 +132,15 @@ def get_help_message():
 def get_quick_reply_games():
     """إنشاء Quick Reply للألعاب"""
     items = [
-        QuickReplyButton(action=MessageAction(label="🏃 سرعة", text="!سرعة")),
-        QuickReplyButton(action=MessageAction(label="🌿 إنسان", text="!انسان")),
-        QuickReplyButton(action=MessageAction(label="🔤 حروف", text="!حروف")),
-        QuickReplyButton(action=MessageAction(label="💬 مثل", text="!مثل")),
-        QuickReplyButton(action=MessageAction(label="🧩 لغز", text="!لغز")),
-        QuickReplyButton(action=MessageAction(label="🔄 ترتيب", text="!ترتيب")),
-        QuickReplyButton(action=MessageAction(label="🪞 معكوس", text="!معكوس")),
-        QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="!ذكاء")),
-        QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="!سلسلة")),
+        QuickReplyButton(action=MessageAction(label="🏃 سرعة", text="سرعة")),
+        QuickReplyButton(action=MessageAction(label="🌿 لعبة", text="لعبة")),
+        QuickReplyButton(action=MessageAction(label="🔤 حروف", text="حروف")),
+        QuickReplyButton(action=MessageAction(label="💬 مثل", text="مثل")),
+        QuickReplyButton(action=MessageAction(label="🧩 لغز", text="لغز")),
+        QuickReplyButton(action=MessageAction(label="🔄 ترتيب", text="ترتيب")),
+        QuickReplyButton(action=MessageAction(label="🪞 معكوس", text="معكوس")),
+        QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
+        QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
     ]
     return QuickReply(items=items)
@@ -282,16 +282,16 @@ def handle_text_message(event):
     # ==========================
     
     game_commands = {
-        '!سرعة': 'fast_typing',
-        '!انسان': 'human_animal',
-        '!حروف': 'letters_words',
-        '!مثل': 'proverbs',
-        '!لغز': 'questions',
-        '!مقلوب': 'reversed_word',
-        '!معكوس': 'mirrored_words',
-        '!ذكاء': 'iq_questions',
-        '!ترتيب': 'scramble_word',
-        '!سلسلة': 'chain_words'
+        'سرعة': 'fast_typing',
+        'لعبة': 'human_animal',
+        'حروف': 'letters_words',
+        'مثل': 'proverbs',
+        'لغز': 'questions',
+        'مقلوب': 'reversed_word',
+        'معكوس': 'mirrored_words',
+        'ذكاء': 'iq_questions',
+        'ترتيب': 'scramble_word',
+        'سلسلة': 'chain_words'
     }
     
     if text in game_commands:
