@@ -64,22 +64,22 @@ active_games = {}  # لتخزين الألعاب النشطة
 # ==========================
 def get_quick_reply_games():
     return QuickReply(items=[
-        QuickReplyButton(action=MessageAction(label="🏃 سرعة", text="سرعة")),
-        QuickReplyButton(action=MessageAction(label="🌿 لعبة", text="لعبة")),
+        QuickReplyButton(action=MessageAction(label="⏱️ سرعة", text="سرعة")),
+        QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="🔤 حروف", text="حروف")),
         QuickReplyButton(action=MessageAction(label="💬 مثل", text="مثل")),
         QuickReplyButton(action=MessageAction(label="🧩 لغز", text="لغز")),
         QuickReplyButton(action=MessageAction(label="🔄 ترتيب", text="ترتيب")),
-        QuickReplyButton(action=MessageAction(label="🪞 معكوس", text="معكوس")),
+        QuickReplyButton(action=MessageAction(label="↔️ معكوس", text="معكوس")),
         QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
         QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
         QuickReplyButton(action=MessageAction(label="⏹️ إيقاف", text="إيقاف")),
-        QuickReplyButton(action=MessageAction(label="مساعدة", text="مساعدة")),
+        QuickReplyButton(action=MessageAction(label="✨مساعدة", text="مساعدة")),
     ])
 
 # ==========================
-# إنشاء Flex Message ناعم لإعلان الفائز
+# إنشاء Flex Message أنعم واحترافي للفائز (ألوان أسود/أبيض/رمادي)
 # ==========================
 def create_winner_flex(name, points):
     bubble = BubbleContainer(
@@ -87,13 +87,13 @@ def create_winner_flex(name, points):
         body=BoxComponent(
             layout='vertical',
             contents=[
-                TextComponent(text="🏆 الفائز!", weight="bold", size="xl", color="#1F2937"),
-                TextComponent(text=f"{name} أكمل 10 إجابات صحيحة!", size="md", color="#374151"),
+                TextComponent(text="🏆 الفائز!", weight="bold", size="xl", color="#000000"),
+                TextComponent(text=f"{name} أكمل 10 إجابات صحيحة!", size="md", color="#4B5563"),
                 TextComponent(text=f"النقاط: {points}", size="lg", weight="bold", color="#111827"),
             ],
             spacing="md",
             padding_all="20px",
-            background_color="#E5E7EB",  # خلفية رسمية وناعمة
+            background_color="#F3F4F6",  # رمادي فاتح
             corner_radius="md"
         )
     )
@@ -111,7 +111,8 @@ def start_game(game_type, user_id, group_id=None):
             'data': game_data,
             'user_id': user_id,
             'timestamp': datetime.now().isoformat(),
-            'correct_counts': {}  # لتخزين عدد الإجابات الصحيحة لكل لاعب
+            'answered_users': set(),  # لتخزين من جاوب صح أولاً
+            'correct_counts': {},      # عدد الإجابات الصحيحة لكل لاعب
         }
         return game_data
     return None
@@ -119,22 +120,34 @@ def start_game(game_type, user_id, group_id=None):
 def check_answer(game_id, user_id, answer, name):
     if game_id not in active_games:
         return None
+
     game_info = active_games[game_id]
     game_type = game_info['type']
     game_data = game_info['data']
-    
+
+    # إذا أحدهم جاوب صح من قبل، تجاهل باقي اللاعبين
+    if game_info['answered_users']:
+        return {
+            'correct': False,
+            'message': "⚠️ لقد تم إيجاد الإجابة الصحيحة من قبل لاعب آخر!"
+        }
+
     result = games[game_type].check_answer(game_data, answer)
-    
+
     if result['correct']:
         points = result.get('points', 10)
         db.add_points(user_id, name, points)
-        
-        # تخزين عدد الإجابات الصحيحة لكل لاعب
+
+        # تسجيل اللاعب الذي جاوب أولاً
+        game_info['answered_users'].add(user_id)
+
+        # تحديث عدد الإجابات الصحيحة
+        game_info.setdefault('correct_counts', {})
         game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
-        
-        # الإعلان فقط عند بلوغ 10 إجابات صحيحة
+
+        # إعلان الفائز بعد 10 إجابات صحيحة
         if game_info['correct_counts'][user_id] >= 10:
-            del active_games[game_id]  # حذف اللعبة بعد الإعلان
+            del active_games[game_id]  # إنهاء اللعبة
             return {
                 'correct': True,
                 'final': True,
@@ -272,7 +285,7 @@ def handle_text_message(event):
                         )
                     )
             else:
-                # إجابة خاطئة
+                # إجابة خاطئة أو تجاوز الإجابة الصحيحة
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
