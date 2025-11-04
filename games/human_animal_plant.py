@@ -9,16 +9,12 @@ class HumanAnimalPlant:
             'جماد': ['كرسي', 'طاولة', 'كتاب', 'قلم', 'حاسوب', 'هاتف', 'باب', 'نافذة'],
             'مدينة': ['الرياض', 'جدة', 'مكة', 'المدينة', 'الدمام', 'أبها', 'الطائف', 'تبوك']
         }
-
         self.letters = list('أبتثجحخدذرزسشصضطظعغفقكلمنهويى')
-
+    
     def start(self):
         category = random.choice(list(self.categories.keys()))
         letter = random.choice(self.letters)
-
-        # اختيار إجابة صحيحة من القائمة
         valid_answers = [word for word in self.categories[category] if word.startswith(letter)]
-
         return {
             'question': f"اكتب {category} يبدأ بحرف '{letter}'",
             'answer': valid_answers[0] if valid_answers else None,
@@ -27,18 +23,16 @@ class HumanAnimalPlant:
             'emoji': '🌿',
             'points': 10
         }
-
+    
     def check_answer(self, game_data, user_answer):
         letter = game_data['letter']
         category = game_data['category']
-
         if not user_answer.strip().startswith(letter):
             return {
                 'correct': False,
                 'points': 0,
                 'message': f"❌ يجب أن تبدأ الكلمة بحرف '{letter}'"
             }
-
         return {
             'correct': True,
             'points': game_data['points'],
