@@ -3,7 +3,8 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
-    FlexSendMessage, QuickReply, QuickReplyButton, MessageAction
+    FlexSendMessage, QuickReply, QuickReplyButton, MessageAction,
+    BubbleContainer, BoxComponent, TextComponent
 )
 import os
 from datetime import datetime
@@ -78,6 +79,27 @@ def get_quick_reply_games():
     ])
 
 # ==========================
+# إنشاء Flex Message ناعم لإعلان الفائز
+# ==========================
+def create_winner_flex(name, points):
+    bubble = BubbleContainer(
+        direction='ltr',
+        body=BoxComponent(
+            layout='vertical',
+            contents=[
+                TextComponent(text="🏆 الفائز!", weight="bold", size="xl", color="#1F2937"),
+                TextComponent(text=f"{name} أكمل 10 إجابات صحيحة!", size="md", color="#374151"),
+                TextComponent(text=f"النقاط: {points}", size="lg", weight="bold", color="#111827"),
+            ],
+            spacing="md",
+            padding_all="20px",
+            background_color="#E5E7EB",  # خلفية رسمية وناعمة
+            corner_radius="md"
+        )
+    )
+    return FlexSendMessage(alt_text="الفائز!", contents=bubble)
+
+# ==========================
 # وظائف الألعاب
 # ==========================
 def start_game(game_type, user_id, group_id=None):
@@ -88,7 +110,8 @@ def start_game(game_type, user_id, group_id=None):
             'type': game_type,
             'data': game_data,
             'user_id': user_id,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'correct_counts': {}  # لتخزين عدد الإجابات الصحيحة لكل لاعب
         }
         return game_data
     return None
@@ -105,17 +128,30 @@ def check_answer(game_id, user_id, answer, name):
     if result['correct']:
         points = result.get('points', 10)
         db.add_points(user_id, name, points)
-        del active_games[game_id]
-        return {
-            'correct': True,
-            'points': points,
-            'message': result.get('message', '✅ إجابة صحيحة!'),
-            'total_points': db.get_user_points(user_id)
-        }
+        
+        # تخزين عدد الإجابات الصحيحة لكل لاعب
+        game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
+        
+        # الإعلان فقط عند بلوغ 10 إجابات صحيحة
+        if game_info['correct_counts'][user_id] >= 10:
+            del active_games[game_id]  # حذف اللعبة بعد الإعلان
+            return {
+                'correct': True,
+                'final': True,
+                'points': points,
+                'message': f"✅ {name} أكمل 10 إجابات صحيحة!"
+            }
+        else:
+            return {
+                'correct': True,
+                'final': False,
+                'points': points,
+                'message': f"✅ إجابة صحيحة! ({game_info['correct_counts'][user_id]} / 10)"
+            }
     else:
         return {
             'correct': False,
-            'message': result.get('message', '❌ إجابة خاطئة، حاول مرة أخرى!')
+            'message': '❌ إجابة خاطئة، حاول مرة أخرى!'
         }
 
 def stop_game(game_id):
@@ -162,7 +198,6 @@ def handle_text_message(event):
     
     if text in ['الصدارة', 'leaderboard', '🏆']:
         flex_msg = FlexMessages.create_leaderboard(db.get_leaderboard())
-        # إضافة Quick Reply ثابت
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
@@ -211,7 +246,7 @@ def handle_text_message(event):
                 event.reply_token,
                 TextSendMessage(
                     text=response_text,
-                    quick_reply=get_quick_reply_games()  # Quick Reply ثابت
+                    quick_reply=get_quick_reply_games()
                 )
             )
         return
@@ -223,15 +258,21 @@ def handle_text_message(event):
         result = check_answer(game_id, user_id, text, user_name)
         if result:
             if result['correct']:
-                flex_msg = FlexMessages.create_win_message(
-                    user_name,
-                    result['points'],
-                    result['total_points'],
-                    result.get('message', '')
-                )
-                flex_msg.quick_reply = get_quick_reply_games()
-                line_bot_api.reply_message(event.reply_token, flex_msg)
+                if result.get('final', False):
+                    # إعلان الفائز بعد 10 إجابات صحيحة باستخدام Flex Message
+                    flex_msg = create_winner_flex(user_name, db.get_user_points(user_id))
+                    line_bot_api.reply_message(event.reply_token, flex_msg)
+                else:
+                    # رسالة عادية عند الإجابة الصحيحة قبل الوصول للـ10
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(
+                            text=result['message'],
+                            quick_reply=get_quick_reply_games()
+                        )
+                    )
             else:
+                # إجابة خاطئة
                 line_bot_api.reply_message(
                     event.reply_token,
                     TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
