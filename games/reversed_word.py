@@ -1,9 +1,4 @@
-# ==========================
-‏# games/reversed_word.py
-# 🔄 لعبة الكلمة المقلوبة
-# ==========================
-
-‏import random
+import random
 
 ‏class ReversedWord:
 ‏    def __init__(self):
