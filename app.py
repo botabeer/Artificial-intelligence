@@ -1,64 +1,60 @@
-from flask import Flask, request, abort, jsonify
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-import os, json, logging
-
-# ================= إعداد Logging =================
-logging.basicConfig(level=logging.INFO)
-
-# ================= إعداد البوت =================
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-app = Flask(__name__)
-
-# ================= استيراد الألعاب من مجلد games =================
+from flask import Flask, jsonify
 from games.fast_typing import fast_typing
 from games.human_animal_plant import human_animal_plant
 from games.letters_words import letters_words
-from games.proverbs import proverbs
-from games.riddles import riddles
-from games.reversed_word import reversed_word
 from games.mirrored_words import mirrored_words
-from games.iq_questions import iq_questions
+from games.reversed_word import reversed_word
 from games.scramble_word import scramble_word
-from games.chain_words import chain_words
+from games.riddles import riddles
+from games.iq_questions import iq_questions
+from games.proverbs import proverbs
+from games.points import points
 
-# ================= endpoint للـ LINE webhook =================
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers.get('X-Line-Signature')
-    body = request.get_data(as_text=True)
-    logging.info("Request body: " + body)
+app = Flask(__name__)
 
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+@app.route("/")
+def home():
+    return "بوت الألعاب جاهز!"
 
-    return 'OK'
+@app.route("/fast_typing")
+def route_fast_typing():
+    return jsonify({"result": fast_typing()})
 
-# ================= مثال رسالة نصية للتأكد من عمل الألعاب =================
-@app.route("/test_games", methods=['GET'])
-def test_games():
-    return jsonify({
-        "fast_typing": fast_typing(),
-        "human_animal_plant": human_animal_plant(),
-        "letters_words": letters_words(),
-        "proverbs": proverbs(),
-        "riddles": riddles(),
-        "reversed_word": reversed_word(),
-        "mirrored_words": mirrored_words(),
-        "iq_questions": iq_questions(),
-        "scramble_word": scramble_word(),
-        "chain_words": chain_words()
-    })
+@app.route("/human_animal_plant")
+def route_hap():
+    return jsonify({"result": human_animal_plant()})
 
-# ================= تشغيل السيرفر =================
+@app.route("/letters_words")
+def route_letters_words():
+    return jsonify({"result": letters_words()})
+
+@app.route("/mirrored_words")
+def route_mirrored_words():
+    return jsonify({"result": mirrored_words()})
+
+@app.route("/reversed_word")
+def route_reversed_word():
+    return jsonify({"result": reversed_word()})
+
+@app.route("/scramble_word")
+def route_scramble_word():
+    return jsonify({"result": scramble_word()})
+
+@app.route("/riddles")
+def route_riddles():
+    return jsonify({"result": riddles()})
+
+@app.route("/iq_questions")
+def route_iq_questions():
+    return jsonify({"result": iq_questions()})
+
+@app.route("/proverbs")
+def route_proverbs():
+    return jsonify({"result": proverbs()})
+
+@app.route("/points")
+def route_points():
+    return jsonify({"result": points()})
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
