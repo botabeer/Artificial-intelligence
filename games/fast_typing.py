@@ -1,9 +1,4 @@
-# ==========================
-‏# games/fast_typing.py
-# 🏃 لعبة أسرع كتابة
-# ==========================
-
-‏import random
+import random
 
 ‏class FastTyping:
 ‏    def __init__(self):
