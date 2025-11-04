@@ -1,67 +1,47 @@
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
-    FlexSendMessage, QuickReply, QuickReplyButton, MessageAction
-)
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, QuickReply, QuickReplyButton, MessageAction, FlexSendMessage
 import os
-from datetime import datetime
 from dotenv import load_dotenv
-
-# استيراد الألعاب
-from games.fast_typing import FastTyping
-from games.human_animal_plant import HumanAnimalPlant
-from games.letters_words import LettersWords
-from games.proverbs import Proverbs
-from games.questions import Questions
-from games.reversed_word import ReversedWord
-from games.mirrored_words import MirroredWords
-from games.iq_questions import IQQuestions
-from games.scramble_word import ScrambleWord
-from games.chain_words import ChainWords
-
-# استيراد الأدوات المساعدة
-from utils.flex_messages import FlexMessages
-from utils.database import Database
+from datetime import datetime
 from utils.gemini_helper import GeminiHelper
 
-# تحميل المتغيرات البيئية
 load_dotenv()
 
 app = Flask(__name__)
-
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
-
-# تهيئة قاعدة البيانات و Gemini
-db = Database()
 gemini = GeminiHelper(GEMINI_API_KEY)
 
-# تهيئة الألعاب
-games = {
-    'fast_typing': FastTyping(),
-    'human_animal': HumanAnimalPlant(),
-    'letters_words': LettersWords(),
-    'proverbs': Proverbs(),
-    'questions': Questions(),
-    'reversed_word': ReversedWord(),
-    'mirrored_words': MirroredWords(),
-    'iq_questions': IQQuestions(),
-    'scramble_word': ScrambleWord(),
-    'chain_words': ChainWords(gemini)
-}
+# قاعدة بيانات بسيطة
+class Database:
+    def __init__(self):
+        self.users = {}  # user_id -> {'name':str, 'points':int}
 
-active_games = {}  # لتخزين الألعاب النشطة
+    def add_points(self, user_id, name, points=1):
+        if user_id not in self.users:
+            self.users[user_id] = {'name': name, 'points': 0}
+        self.users[user_id]['points'] += points
 
-# ==========================
-# Quick Reply ثابت لجميع الرسائل
-# ==========================
-def get_quick_reply_games():
+    def get_user_points(self, user_id):
+        return self.users.get(user_id, {}).get('points', 0)
+
+    def reset_points(self, user_id):
+        if user_id in self.users:
+            self.users[user_id]['points'] = 0
+
+db = Database()
+
+# الألعاب النشطة
+active_games = {}  # game_id -> {'type': str, 'question': str, 'answered': bool, 'correct_count': int, 'user_id': str}
+
+# Quick Reply
+def get_quick_reply():
     return QuickReply(items=[
         QuickReplyButton(action=MessageAction(label="⏱️ سرعة", text="سرعة")),
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
@@ -77,88 +57,45 @@ def get_quick_reply_games():
         QuickReplyButton(action=MessageAction(label="✨مساعدة", text="مساعدة")),
     ])
 
-# ==========================
-# Flex Message للفائز بعد 10 إجابات صحيحة
-# ==========================
-def create_winner_flex(name, points):
-    bubble = {
-        "type": "bubble",
-        "size": "kilo",
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {"type": "text", "text": "🏆 الفائز!", "weight": "bold", "size": "xl", "color": "#000000", "align": "center"},
-                {"type": "text", "text": f"{name} أكمل 10 إجابات صحيحة!", "size": "md", "color": "#4B5563", "align": "center", "wrap": True},
-                {"type": "text", "text": f"النقاط: {points}", "size": "lg", "weight": "bold", "color": "#111827", "align": "center"}
-            ],
-            "paddingAll": "20px",
-            "spacing": "md",
-            "backgroundColor": "#F3F4F6",
-            "cornerRadius": "md"
-        }
-    }
-    return FlexSendMessage(alt_text="🏆 الفائز!", contents=bubble)
-
-# ==========================
-# وظائف الألعاب
-# ==========================
+# بدء اللعبة
 def start_game(game_type, user_id, group_id=None):
-    game_id = group_id if group_id else user_id
-    if game_type in games:
-        game_data = games[game_type].start()
-        active_games[game_id] = {
-            'type': game_type,
-            'data': game_data,
-            'user_id': user_id,
-            'timestamp': datetime.now().isoformat(),
-            'answered_users': set(),
-            'correct_counts': {},
-        }
-        return game_data
-    return None
+    game_id = group_id or user_id
+    question = gemini.generate_question(game_type)
+    active_games[game_id] = {
+        'type': game_type,
+        'question': question,
+        'answered': False,
+        'correct_count': 0,
+        'user_id': None
+    }
+    return question
 
+# التحقق من الإجابة
 def check_answer(game_id, user_id, answer, name):
     if game_id not in active_games:
         return None
-
-    game_info = active_games[game_id]
-    game_type = game_info['type']
-    game_data = game_info['data']
-
-    # يتم احتساب أول إجابة صحيحة فقط لأي لاعب
-    if game_info['answered_users']:
-        return None
-
-    result = games[game_type].check_answer(game_data, answer)
-
-    if result['correct']:
-        db.add_points(user_id, name, 1)
-        game_info['answered_users'].add(user_id)
-        game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
-
+    game = active_games[game_id]
+    if game['answered']:
+        return None  # تجاهل أي إجابة بعد أول إجابة صحيحة
+    correct = gemini.check_answer(game['type'], game['question'], answer)
+    if correct:
+        db.add_points(user_id, name)
+        game['answered'] = True
+        game['user_id'] = user_id
+        game['correct_count'] += 1
         total_points = db.get_user_points(user_id)
-        if game_info['correct_counts'][user_id] >= 10 or total_points >= 10:
+        if game['correct_count'] >= 10 or total_points >= 10:
+            # إعلان الفائز ومسح اللعبة
             del active_games[game_id]
-            return {'correct': True, 'final': True, 'message': f"🏆 {name} فائز! وصلت 10 نقاط!"}
-        else:
-            return {'correct': True, 'final': False, 'message': "✅ إجابة صحيحة!"}
-    else:
-        # تجاهل أي إجابة خاطئة بدون رد
-        return None
+            db.reset_points(user_id)
+            return {'final': True, 'message': f"🏆 {name} فائز! تم إعادة ضبط اللعبة."}
+        return {'final': False, 'message': f"✅ إجابة صحيحة!"}
+    return {'final': False, 'message': "❌ إجابة خاطئة، حاول مرة أخرى!"}
 
-def stop_game(game_id):
-    if game_id in active_games:
-        del active_games[game_id]
-        return True
-    return False
-
-# ==========================
 # Webhook
-# ==========================
 @app.route("/callback", methods=['POST'])
 def callback():
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers.get('X-Line-Signature')
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
@@ -167,105 +104,52 @@ def callback():
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
-def handle_text_message(event):
+def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
-
     try:
-        profile = line_bot_api.get_profile(user_id)
-        user_name = profile.display_name
+        user_name = line_bot_api.get_profile(user_id).display_name
     except:
         user_name = "لاعب"
 
     game_id = getattr(event.source, 'group_id', None) or user_id
 
-    # ==========================
-    # الأوامر الأساسية
-    # ==========================
+    # أوامر البوت
     if text in ['مساعدة', 'help', '؟', 'المساعدة']:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text="إليك قائمة الأوامر:", quick_reply=get_quick_reply_games())
-        )
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="📋 اختر أحد الأوامر:", quick_reply=get_quick_reply()))
         return
-
     if text in ['الصدارة', 'leaderboard', '🏆']:
-        flex_msg = FlexMessages.create_leaderboard(db.get_leaderboard())
-        flex_msg.quick_reply = get_quick_reply_games()
-        line_bot_api.reply_message(event.reply_token, flex_msg)
+        leaderboard = "\n".join([f"{i+1}. {v['name']} - {v['points']}⭐" for i,(k,v) in enumerate(sorted(db.users.items(), key=lambda x:x[1]['points'], reverse=True))])
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🏆 الصدارة:\n{leaderboard}", quick_reply=get_quick_reply()))
         return
-
-    if text in ['نقاطي', 'نقاط', 'points']:
+    if text in ['نقاطي', 'points', 'نقاط']:
         points = db.get_user_points(user_id)
-        flex_msg = FlexMessages.create_user_stats(user_name, points)
-        flex_msg.quick_reply = get_quick_reply_games()
-        line_bot_api.reply_message(event.reply_token, flex_msg)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"⭐ نقاطك الحالية: {points}", quick_reply=get_quick_reply()))
+        return
+    if text in ['إيقاف','stop','ايقاف']:
+        if game_id in active_games:
+            del active_games[game_id]
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⏹️ تم إيقاف اللعبة.", quick_reply=get_quick_reply()))
         return
 
-    if text in ['إيقاف', 'stop', 'ايقاف']:
-        if stop_game(game_id):
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="⏹️ تم إيقاف اللعبة الحالية.", quick_reply=get_quick_reply_games())
-            )
-        return
-
-    # ==========================
     # بدء الألعاب
-    # ==========================
-    game_commands = {
-        'سرعة': 'fast_typing',
-        'لعبة': 'human_animal',
-        'حروف': 'letters_words',
-        'مثل': 'proverbs',
-        'لغز': 'questions',
-        'مقلوب': 'reversed_word',
-        'معكوس': 'mirrored_words',
-        'ذكاء': 'iq_questions',
-        'ترتيب': 'scramble_word',
-        'سلسلة': 'chain_words'
-    }
-
-    if text in game_commands:
-        game_type = game_commands[text]
-        game_data = start_game(game_type, user_id, getattr(event.source, 'group_id', None))
-        if game_data:
-            game_message = game_data.get('question', game_data.get('message', ''))
-            emoji = game_data.get('emoji', '🎮')
-            response_text = f"{emoji} {game_message}"
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=response_text, quick_reply=get_quick_reply_games())
-            )
+    commands = {'سرعة':'fast_typing','لعبة':'human_animal','حروف':'letters_words','مثل':'proverbs','لغز':'questions','معكوس':'mirrored_words','ذكاء':'iq_questions','ترتيب':'scramble_word','سلسلة':'chain_words'}
+    if text in commands:
+        question = start_game(commands[text], user_id, getattr(event.source,'group_id',None))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"🎮 {question}", quick_reply=get_quick_reply()))
         return
 
-    # ==========================
-    # التحقق من الإجابة للألعاب النشطة
-    # ==========================
+    # التحقق من الإجابة
     if game_id in active_games:
         result = check_answer(game_id, user_id, text, user_name)
         if result:
-            if result['correct']:
-                if result.get('final', False):
-                    flex_msg = create_winner_flex(user_name, db.get_user_points(user_id))
-                    line_bot_api.reply_message(event.reply_token, flex_msg)
-                else:
-                    line_bot_api.reply_message(
-                        event.reply_token,
-                        TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
-                    )
-        return  # تجاهل أي نص آخر
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result['message'], quick_reply=get_quick_reply()))
+        return
 
-    # أي نص آخر يُتجاهل تمامًا
+    # تجاهل أي نص آخر
     return
 
-# ==========================
-# تشغيل التطبيق
-# ==========================
-@app.route("/", methods=['GET'])
-def home():
-    return "<h1>🎮 البوت يعمل بنجاح ✅</h1>"
-
+# تشغيل السيرفر
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
