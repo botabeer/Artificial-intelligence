@@ -112,8 +112,8 @@ def start_game(game_type, user_id, group_id=None):
             'data': game_data,
             'user_id': user_id,
             'timestamp': datetime.now().isoformat(),
-            'answered_users': set(),  # فقط أول لاعب يحصل على الإجابة الصحيحة
-            'correct_counts': {},     # عد النقاط لكل لاعب
+            'answered_users': set(),
+            'correct_counts': {},
         }
         return game_data
     return None
@@ -126,14 +126,13 @@ def check_answer(game_id, user_id, answer, name):
     game_type = game_info['type']
     game_data = game_info['data']
 
-    # إذا تم إيجاد الإجابة الصحيحة لأي لاعب مسبقًا، تجاهل الإجابة
+    # يتم احتساب أول إجابة صحيحة فقط لأي لاعب
     if game_info['answered_users']:
-        return {'correct': False, 'message': "⚠️ تم إيجاد الإجابة الصحيحة مسبقًا!"}
+        return None
 
     result = games[game_type].check_answer(game_data, answer)
 
     if result['correct']:
-        # أول إجابة صحيحة فقط
         db.add_points(user_id, name, 1)
         game_info['answered_users'].add(user_id)
         game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
@@ -143,9 +142,10 @@ def check_answer(game_id, user_id, answer, name):
             del active_games[game_id]
             return {'correct': True, 'final': True, 'message': f"🏆 {name} فائز! وصلت 10 نقاط!"}
         else:
-            return {'correct': True, 'final': False, 'message': "✅ إجابة صحيحة!"}  # بدون الرقم
+            return {'correct': True, 'final': False, 'message': "✅ إجابة صحيحة!"}
     else:
-        return {'correct': False, 'message': "❌ إجابة خاطئة، حاول مرة أخرى!"}
+        # تجاهل أي إجابة خاطئة بدون رد
+        return None
 
 def stop_game(game_id):
     if game_id in active_games:
@@ -197,9 +197,7 @@ def handle_text_message(event):
 
     if text in ['نقاطي', 'نقاط', 'points']:
         points = db.get_user_points(user_id)
-        rank = db.get_user_rank(user_id)
-        stats = db.get_user_stats(user_id)
-        flex_msg = FlexMessages.create_user_stats(user_name, points, rank, stats)
+        flex_msg = FlexMessages.create_user_stats(user_name, points)
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
@@ -256,22 +254,18 @@ def handle_text_message(event):
                         event.reply_token,
                         TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
                     )
-            else:
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(text=result['message'], quick_reply=get_quick_reply_games())
-                )
-        return
+        return  # تجاهل أي نص آخر
 
-    # نص عام لأي رسالة أخرى
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text="اختر أحد الأوامر من الأزرار أدناه:", quick_reply=get_quick_reply_games())
-    )
+    # أي نص آخر يُتجاهل تمامًا
+    return
 
 # ==========================
 # تشغيل التطبيق
 # ==========================
+@app.route("/", methods=['GET'])
+def home():
+    return "<h1>🎮 البوت يعمل بنجاح ✅</h1>"
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
