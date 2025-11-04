@@ -1,9 +1,4 @@
-# ==========================
-‏# games/proverbs.py
-# 💬 لعبة أكمل المثل
-# ==========================
-
-‏import random
+import random
 
 ‏class Proverbs:
 ‏    def __init__(self):
