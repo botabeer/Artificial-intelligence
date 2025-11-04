@@ -6,21 +6,19 @@
 from linebot.models import FlexSendMessage
 
 class FlexMessages:
-    
+
     @staticmethod
     def create_leaderboard(top_players):
         """إنشاء لوحة صدارة احترافية"""
-        
         medals = ['🥇', '🥈', '🥉']
         colors = ['#FFD700', '#C0C0C0', '#CD7F32', '#4A90E2', '#4A90E2']
-        
-        # إنشاء محتويات اللاعبين
+
         player_contents = []
-        
+
         for idx, player in enumerate(top_players):
             medal = medals[idx] if idx < 3 else f"#{idx + 1}"
             color = colors[idx] if idx < len(colors) else '#4A90E2'
-            
+
             player_box = {
                 "type": "box",
                 "layout": "horizontal",
@@ -68,10 +66,9 @@ class FlexMessages:
                 "backgroundColor": "#FFF9E6" if idx < 3 else "#F8F9FA",
                 "cornerRadius": "md"
             }
-            
+
             player_contents.append(player_box)
-        
-        # إضافة رسالة إذا لم يكن هناك لاعبين
+
         if not player_contents:
             player_contents.append({
                 "type": "text",
@@ -80,7 +77,7 @@ class FlexMessages:
                 "color": "#999999",
                 "wrap": True
             })
-        
+
         bubble = {
             "type": "bubble",
             "size": "mega",
@@ -131,16 +128,15 @@ class FlexMessages:
                 "paddingAll": "12px"
             }
         }
-        
+
         return FlexSendMessage(
             alt_text="🏆 لوحة الصدارة",
             contents=bubble
         )
-    
+
     @staticmethod
     def create_user_stats(name, points, rank, stats):
         """إنشاء بطاقة إحصائيات اللاعب"""
-        
         bubble = {
             "type": "bubble",
             "size": "kilo",
@@ -148,13 +144,7 @@ class FlexMessages:
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
-                    {
-                        "type": "text",
-                        "text": "📊 إحصائياتك",
-                        "weight": "bold",
-                        "size": "xl",
-                        "color": "#FFFFFF"
-                    }
+                    {"type": "text", "text": "📊 إحصائياتك", "weight": "bold", "size": "xl", "color": "#FFFFFF"}
                 ],
                 "paddingAll": "20px",
                 "backgroundColor": "#7B68EE"
@@ -172,10 +162,7 @@ class FlexMessages:
                         ],
                         "margin": "md"
                     },
-                    {
-                        "type": "separator",
-                        "margin": "lg"
-                    },
+                    {"type": "separator", "margin": "lg"},
                     {
                         "type": "box",
                         "layout": "horizontal",
@@ -212,32 +199,21 @@ class FlexMessages:
                         ],
                         "margin": "md"
                     },
-                    {
-                        "type": "separator",
-                        "margin": "lg"
-                    },
-                    {
-                        "type": "text",
-                        "text": f"نسبة الفوز: {stats['win_rate']}%",
-                        "size": "sm",
-                        "color": "#999999",
-                        "margin": "lg",
-                        "align": "center"
-                    }
+                    {"type": "separator", "margin": "lg"},
+                    {"type": "text", "text": f"نسبة الفوز: {stats['win_rate']}%", "size": "sm", "color": "#999999", "margin": "lg", "align": "center"}
                 ],
                 "paddingAll": "20px"
             }
         }
-        
+
         return FlexSendMessage(
             alt_text="📊 إحصائياتك",
             contents=bubble
         )
-    
+
     @staticmethod
     def create_win_message(name, points_earned, total_points, message=""):
         """إنشاء رسالة فوز"""
-        
         bubble = {
             "type": "bubble",
             "size": "kilo",
@@ -245,14 +221,7 @@ class FlexMessages:
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
-                    {
-                        "type": "text",
-                        "text": "🎉 فوز رائع!",
-                        "weight": "bold",
-                        "size": "xl",
-                        "color": "#FFFFFF",
-                        "align": "center"
-                    }
+                    {"type": "text", "text": "🎉 فوز رائع!", "weight": "bold", "size": "xl", "color": "#FFFFFF", "align": "center"}
                 ],
                 "paddingAll": "20px",
                 "backgroundColor": "#4CAF50"
@@ -261,26 +230,9 @@ class FlexMessages:
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
-                    {
-                        "type": "text",
-                        "text": f"مبروك {name}!",
-                        "weight": "bold",
-                        "size": "lg",
-                        "align": "center"
-                    },
-                    {
-                        "type": "text",
-                        "text": f"+{points_earned} نقطة",
-                        "size": "xxl",
-                        "weight": "bold",
-                        "color": "#FF6B6B",
-                        "align": "center",
-                        "margin": "lg"
-                    },
-                    {
-                        "type": "separator",
-                        "margin": "lg"
-                    },
+                    {"type": "text", "text": f"مبروك {name}!", "weight": "bold", "size": "lg", "align": "center"},
+                    {"type": "text", "text": f"+{points_earned} نقطة", "size": "xxl", "weight": "bold", "color": "#FF6B6B", "align": "center", "margin": "lg"},
+                    {"type": "separator", "margin": "lg"},
                     {
                         "type": "box",
                         "layout": "horizontal",
@@ -299,11 +251,7 @@ class FlexMessages:
                 "contents": [
                     {
                         "type": "button",
-                        "action": {
-                            "type": "message",
-                            "label": "🎮 لعبة جديدة",
-                            "text": "مساعدة"
-                        },
+                        "action": {"type": "message", "label": "🎮 لعبة جديدة", "text": "مساعدة"},
                         "style": "primary",
                         "color": "#4CAF50"
                     }
@@ -311,7 +259,7 @@ class FlexMessages:
                 "paddingAll": "12px"
             }
         }
-        
+
         if message:
             bubble["body"]["contents"].insert(1, {
                 "type": "text",
@@ -322,7 +270,7 @@ class FlexMessages:
                 "wrap": True,
                 "margin": "md"
             })
-        
+
         return FlexSendMessage(
             alt_text="🎉 إجابة صحيحة!",
             contents=bubble
