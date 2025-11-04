@@ -1,2 +1,2 @@
 def fast_typing():
-    return "ابدأ لعبة كتابة سريعة!"
+    return 'Fast typing game placeholder'

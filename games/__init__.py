@@ -1,1 +1,1 @@
-# هذا الملف يجعل مجلد games يعتبر package
+# Package initializer

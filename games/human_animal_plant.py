@@ -1,2 +1,2 @@
 def human_animal_plant():
-    return "ابدأ لعبة إنسان حيوان نبات!"
+    return 'Human-Animal-Plant game placeholder'
