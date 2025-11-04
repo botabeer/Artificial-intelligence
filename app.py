@@ -112,8 +112,8 @@ def start_game(game_type, user_id, group_id=None):
             'data': game_data,
             'user_id': user_id,
             'timestamp': datetime.now().isoformat(),
-            'answered_users': set(),
-            'correct_counts': {},
+            'answered_users': set(),  # فقط أول لاعب يحصل على الإجابة الصحيحة
+            'correct_counts': {},     # عد النقاط لكل لاعب
         }
         return game_data
     return None
@@ -126,41 +126,26 @@ def check_answer(game_id, user_id, answer, name):
     game_type = game_info['type']
     game_data = game_info['data']
 
-    if user_id in game_info['answered_users']:
-        return {
-            'correct': False,
-            'message': "⚠️ لقد أجبت بالفعل!"
-        }
+    # إذا تم إيجاد الإجابة الصحيحة لأي لاعب مسبقًا، تجاهل الإجابة
+    if game_info['answered_users']:
+        return {'correct': False, 'message': "⚠️ تم إيجاد الإجابة الصحيحة مسبقًا!"}
 
     result = games[game_type].check_answer(game_data, answer)
 
     if result['correct']:
-        points = result.get('points', 1)
-        db.add_points(user_id, name, points)
-
+        # أول إجابة صحيحة فقط
+        db.add_points(user_id, name, 1)
         game_info['answered_users'].add(user_id)
         game_info['correct_counts'][user_id] = game_info['correct_counts'].get(user_id, 0) + 1
 
-        if game_info['correct_counts'][user_id] >= 10:
+        total_points = db.get_user_points(user_id)
+        if game_info['correct_counts'][user_id] >= 10 or total_points >= 10:
             del active_games[game_id]
-            return {
-                'correct': True,
-                'final': True,
-                'points': points,
-                'message': f"{name} أكمل 10 إجابات صحيحة!"
-            }
+            return {'correct': True, 'final': True, 'message': f"🏆 {name} فائز! وصلت 10 نقاط!"}
         else:
-            return {
-                'correct': True,
-                'final': False,
-                'points': points,
-                'message': f"✅ إجابة صحيحة! ({game_info['correct_counts'][user_id]} / 10)"
-            }
+            return {'correct': True, 'final': False, 'message': "✅ إجابة صحيحة!"}  # بدون الرقم
     else:
-        return {
-            'correct': False,
-            'message': "❌ إجابة خاطئة، حاول مرة أخرى!"
-        }
+        return {'correct': False, 'message': "❌ إجابة خاطئة، حاول مرة أخرى!"}
 
 def stop_game(game_id):
     if game_id in active_games:
@@ -212,7 +197,9 @@ def handle_text_message(event):
 
     if text in ['نقاطي', 'نقاط', 'points']:
         points = db.get_user_points(user_id)
-        flex_msg = FlexMessages.create_user_stats(user_name, points)
+        rank = db.get_user_rank(user_id)
+        stats = db.get_user_stats(user_id)
+        flex_msg = FlexMessages.create_user_stats(user_name, points, rank, stats)
         flex_msg.quick_reply = get_quick_reply_games()
         line_bot_api.reply_message(event.reply_token, flex_msg)
         return
