@@ -1,8 +1,3 @@
-"""
-LINE Bot - نظام ألعاب تفاعلي ذكي
-يعتمد بالكامل على Gemini AI
-"""
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
