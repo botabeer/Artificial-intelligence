@@ -5,19 +5,13 @@ from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
     QuickReply, QuickReplyButton, MessageAction
 )
-import os
-import logging
-import sqlite3
-from datetime import datetime
+import os, logging, sqlite3, json, re
 from dotenv import load_dotenv
 import google.generativeai as genai
-import json
-import re
+from datetime import datetime
 
-# ==========================
-# إعداد البيئة والتسجيل
-# ==========================
 load_dotenv()
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -37,36 +31,40 @@ handler = WebhookHandler(CHANNEL_SECRET)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# ==========================
 # قاعدة البيانات SQLite
-# ==========================
 DB_PATH = "data/games.db"
+os.makedirs("data", exist_ok=True)
 
 def init_db():
-    os.makedirs("data", exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS users (
+    # جدول المستخدمين
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
         name TEXT,
         points INTEGER DEFAULT 0,
         games INTEGER DEFAULT 0
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS active_games (
+    )
+    """)
+    # جدول الألعاب النشطة
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS active_games (
         game_id TEXT PRIMARY KEY,
         game_type TEXT,
         question TEXT,
         answer TEXT,
         count INTEGER DEFAULT 0,
         answered INTEGER DEFAULT 0
-    )""")
+    )
+    """)
     conn.commit()
     conn.close()
 
 init_db()
 
 # ==========================
-# إدارة المستخدمين والألعاب
+# إدارة قاعدة البيانات
 # ==========================
 def get_user(user_id, name):
     conn = sqlite3.connect(DB_PATH)
@@ -80,7 +78,7 @@ def get_user(user_id, name):
     conn.close()
     return {'id': user[0], 'name': user[1], 'points': user[2], 'games': user[3]}
 
-def add_points(user_id):
+def add_points(user_id, name):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("UPDATE users SET points=points+1, games=games+1 WHERE user_id=?", (user_id,))
@@ -149,21 +147,23 @@ def delete_game(game_id):
     conn.close()
 
 # ==========================
-# Quick Reply Buttons
+# Quick Reply
 # ==========================
 def get_quick_reply():
     return QuickReply(items=[
-        QuickReplyButton(action=MessageAction(label="⏱ سرعة", text="سرعة")),
-        QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
-        QuickReplyButton(action=MessageAction(label="🔤 حروف", text="حروف")),
-        QuickReplyButton(action=MessageAction(label="💬 مثل", text="مثل")),
-        QuickReplyButton(action=MessageAction(label="🧩 لغز", text="لغز")),
-        QuickReplyButton(action=MessageAction(label="🔄 ترتيب", text="ترتيب")),
-        QuickReplyButton(action=MessageAction(label="↔️ معكوس", text="معكوس")),
         QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
-        QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
-        QuickReplyButton(action=MessageAction(label="▶️ تشغيل", text="تشغيل")),
+        QuickReplyButton(action=MessageAction(label="🧍‍♂️ تحليل", text="تحليل")),
+        QuickReplyButton(action=MessageAction(label="🤔 خمن", text="خمن")),
+        QuickReplyButton(action=MessageAction(label="🔠 ترتيب", text="ترتيب")),
+        QuickReplyButton(action=MessageAction(label="📝 كلمات", text="كلمات")),
+        QuickReplyButton(action=MessageAction(label="⚡ أسرع", text="أسرع")),
+        QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
+        QuickReplyButton(action=MessageAction(label="❤️ توافق", text="توافق")),
+        QuickReplyButton(action=MessageAction(label="💬 صراحة", text="صراحة")),
+        QuickReplyButton(action=MessageAction(label="🏆 الصدارة", text="الصدارة")),
+        QuickReplyButton(action=MessageAction(label="📊 نقاطي", text="نقاطي")),
         QuickReplyButton(action=MessageAction(label="⏹ إيقاف", text="إيقاف")),
+        QuickReplyButton(action=MessageAction(label="⏯ تشغيل", text="تشغيل")),
         QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
     ])
 
@@ -172,65 +172,49 @@ def get_quick_reply():
 # ==========================
 def generate_question(game_type):
     prompts = {
-        'سرعة': 'أنشئ كلمة عربية فصحى واحدة من 4 إلى 7 حروف. أرجع فقط JSON: {"word":"الكلمة"}',
-        'لعبة': 'أعط اسم شخص عربي مشهور واحد فقط. أرجع فقط JSON: {"answer":"الاسم"}',
-        'حروف': 'أعط 4 حروف عربية مختلفة وكلمة يمكن تكوينها منها. أرجع فقط JSON: {"letters":["ح","ب","ك","ت"],"word":"كتب"}',
-        'مثل': 'أعط مثل عربي شهير مقسوم لجزئين. أرجع فقط JSON: {"question":"الجزء الأول…","answer":"الجزء الثاني"}',
-        'لغز': 'أعط لغز عربي بسيط وحله. أرجع فقط JSON: {"question":"اللغز","answer":"الحل"}',
-        'ترتيب': 'أعط كلمة عربية 4-6 حروف ونفس الكلمة مبعثرة الحروف. أرجع فقط JSON: {"scrambled":"كلمة مبعثرة","answer":"الكلمة الصحيحة"}',
-        'معكوس': 'أعط كلمة عربية بسيطة 4-6 حروف. أرجع فقط JSON: {"word":"الكلمة"}',
-        'ذكاء': 'أعط سؤال ذكاء رياضي بسيط وحله. أرجع فقط JSON: {"question":"السؤال","answer":"الجواب"}',
-        'سلسلة': 'أعط كلمة عربية 4-6 حروف. أرجع فقط JSON: {"word":"الكلمة"}'
+        'ذكاء': 'أعط سؤال ذكاء عربي بسيط مع الجواب فقط JSON {"question":"...", "answer":"..."}',
+        'تحليل': 'اسأل المستخدم 3 أسئلة شخصية وأرجعها JSON {"questions":["سؤال1","سؤال2","سؤال3"]}',
+        'خمن': 'وصف كلمة (إنسان/حيوان/نبات/جماد) وأرجع JSON {"description":"...", "answer":"..."}',
+        'ترتيب': 'أعط كلمة عربية 4-6 حروف مبعثرة JSON {"scrambled":"...", "answer":"..."}',
+        'كلمات': 'أعط 5 حروف عربية مختلفة JSON {"letters":["ح","ب","ك","ت","ر"], "words":["كتب","برك"]}',
+        'أسرع': 'أعط كلمة عربية واحدة JSON {"word":"..." }',
+        'لعبة': 'اختر فئة وحرف البداية JSON {"category":"إنسان","letter":"أ"}',
+        'توافق': 'أعط نسبة توافق رمزية JSON {"percentage":85}',
+        'صراحة': 'اختر سؤال عشوائي من قائمة JSON {"question":"..."}'
     }
     try:
-        response = model.generate_content(prompts.get(game_type, prompts['لعبة']))
+        response = model.generate_content(prompts.get(game_type, prompts['ذكاء']))
         text = response.text.strip()
         text = re.sub(r'```json\s*', '', text)
         text = re.sub(r'```\s*', '', text)
         return json.loads(text)
     except Exception as e:
         logger.error(f"Gemini error: {e}")
-        # fallback
-        return {'word': 'مدرسة', 'answer': 'مدرسة'}
+        # Fallbacks
+        return {"question":"سؤال تجريبي","answer":"الجواب"}
 
 def verify_answer(game_type, question, correct, user_answer):
     user_answer = user_answer.strip()
     correct = correct.strip()
-    if game_type == 'معكوس':
-        return user_answer == correct[::-1]
-    elif game_type == 'سلسلة':
-        return len(user_answer) >= 3 and user_answer[0] == question[-1]
-    elif game_type in ['حروف', 'ترتيب']:
-        return user_answer == correct
-    else:
-        return user_answer == correct
+    # تحقق بسيط لكل الألعاب
+    return user_answer.lower() == correct.lower()
 
 def format_question(game_type, data, count):
     emoji_map = {
-        'سرعة':'⏱','لعبة':'🎮','حروف':'🔤','مثل':'💬','لغز':'🧩',
-        'ترتيب':'🔄','معكوس':'↔️','ذكاء':'🧠','سلسلة':'🔗'
+        'ذكاء':'🧠','تحليل':'🧍‍♂️','خمن':'🤔','ترتيب':'🔠','كلمات':'📝',
+        'أسرع':'⚡','لعبة':'🎮','توافق':'❤️','صراحة':'💬'
     }
     emoji = emoji_map.get(game_type,'🎯')
-    if game_type == 'سرعة':
-        return f"{emoji} اكتب الكلمة:\n\n{data.get('word')}\n\n[{count}/10]"
-    elif game_type == 'لعبة':
-        return f"{emoji} اسم إنسان يبدأ بحرف: {data.get('answer')[0]}\n\n[{count}/10]"
-    elif game_type == 'حروف':
-        letters = ' - '.join(data.get('letters',[]))
-        return f"{emoji} كوّن كلمة من الحروف:\n\n{letters}\n\n[{count}/10]"
-    elif game_type == 'مثل':
-        return f"{emoji} أكمل المثل:\n\n{data.get('question')}\n\n[{count}/10]"
-    elif game_type == 'لغز':
-        return f"{emoji} اللغز:\n\n{data.get('question')}\n\n[{count}/10]"
-    elif game_type == 'ترتيب':
-        return f"{emoji} رتّب الحروف:\n\n{data.get('scrambled')}\n\n[{count}/10]"
-    elif game_type == 'معكوس':
-        return f"{emoji} اكتب الكلمة معكوسة:\n\n{data.get('word')}\n\n[{count}/10]"
-    elif game_type == 'ذكاء':
-        return f"{emoji} سؤال:\n\n{data.get('question')}\n\n[{count}/10]"
-    elif game_type == 'سلسلة':
-        return f"{emoji} كلمة تبدأ بحرف: {data.get('word')[-1]}\n\n[{count}/10]"
-    return f"{emoji} {data.get('question', data.get('word'))}\n\n[{count}/10]"
+    if game_type in ['ذكاء','تحليل','خمن','ترتيب','كلمات','أسرع']:
+        q = data.get('question') or data.get('word') or data.get('scrambled') or data.get('description')
+        return f"{emoji} السؤال:\n{q}\n[{count}/10]"
+    if game_type == 'لعبة':
+        return f"{emoji} الفئة: {data.get('category')}, ابدأ بحرف: {data.get('letter')}\n[{count}/10]"
+    if game_type == 'توافق':
+        return f"{emoji} نسبة التوافق: {data.get('percentage')}%\n[{count}/10]"
+    if game_type == 'صراحة':
+        return f"{emoji} سؤال صراحة:\n{data.get('question')}\n[{count}/10]"
+    return f"{emoji} {data.get('question','سؤال')}"
 
 # ==========================
 # Webhook
@@ -249,104 +233,82 @@ def callback():
 def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
-    game_id = getattr(event.source, 'group_id', None) or user_id
+    try:
+        profile = line_bot_api.get_profile(user_id)
+        name = profile.display_name
+    except:
+        name = "لاعب"
+    game_id = getattr(event.source,'group_id',None) or user_id
     qr = get_quick_reply()
-    commands = ['مساعدة','الصدارة','نقاطي','إيقاف','سرعة','لعبة','حروف','مثل','لغز','ترتيب','معكوس','ذكاء','سلسلة']
+    commands = ['مساعدة','الصدارة','نقاطي','إيقاف','تشغيل','ذكاء','تحليل','خمن','ترتيب','كلمات','أسرع','لعبة','توافق','صراحة']
     game = get_game(game_id)
     
-    # تجاهل الرسائل غير أوامر
     if text not in commands and not game:
         return
-    
-    # أوامر البوت
+
+    # معالجة الأوامر الأساسية
     if text == 'مساعدة':
-        help_text = """ℹ️ دليل الاستخدام
-🎮 الألعاب المتاحة:
-⏱ سرعة - اكتب الكلمة بسرعة
-🎮 لعبة - اسم إنسان
-🔤 حروف - كوّن كلمة
-💬 مثل - أكمل المثل
-🧩 لغز - حل اللغز
-🔄 ترتيب - رتب الحروف
-↔️ معكوس - اكتب معكوس
-🧠 ذكاء - سؤال ذكاء
-🔗 سلسلة - سلسلة كلمات
-
-📊 الأوامر:
-🏆 الصدارة - أفضل 5 لاعبين
-📊 نقاطي - نقاطك الحالية
-⏹ إيقاف - إيقاف اللعبة
-
-كل إجابة صحيحة = نقطة واحدة 🌟"""
+        help_text = "ℹ️ دليل الاستخدام\n" + "\n".join(commands)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_text, quick_reply=qr))
         return
-    
+
     if text == 'الصدارة':
         top = get_leaderboard()
-        if top:
-            leaderboard_text = "🏆 لوحة الصدارة:\n\n" + "\n".join([f"{i+1}. {n} - {p} نقطة" for i,(n,p) in enumerate(top)])
-        else:
-            leaderboard_text = "🏆 لا توجد نقاط بعد!"
+        leaderboard_text = "🏆 الصدارة:\n" + "\n".join([f"{i+1}. {n} - {p} نقطة" for i,(n,p) in enumerate(top)]) if top else "لا توجد نقاط بعد."
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=leaderboard_text, quick_reply=qr))
         return
-    
+
     if text == 'نقاطي':
-        user = get_user(user_id, "لاعب")
-        stats_text = f"📊 نقاطك: {user['points']}\n🎮 الألعاب: {user['games']}"
+        user = get_user(user_id,name)
+        stats_text = f"🌟 نقاطك: {user['points']}\n🎮 ألعابك: {user['games']}"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=stats_text, quick_reply=qr))
         return
-    
+
     if text == 'إيقاف':
-        if game:
-            delete_game(game_id)
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⏹ تم إيقاف اللعبة", quick_reply=qr))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ لا توجد لعبة نشطة", quick_reply=qr))
+        if game: delete_game(game_id)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⏹ تم إيقاف اللعبة", quick_reply=qr))
         return
-    
-    if text in commands[4:]:
-        if game:
-            delete_game(game_id)
+
+    if text in commands[5:]:
+        if game: delete_game(game_id)
         data = generate_question(text)
-        question_text = data.get('question') or data.get('word') or data.get('scrambled')
+        question_text = data.get('question') or data.get('word') or data.get('scrambled') or data.get('description')
         answer = data.get('answer') or data.get('word')
-        start_game(game_id, text, question_text, answer)
-        formatted_question = format_question(text, data, 1)
+        start_game(game_id,text,question_text,answer)
+        formatted_question = format_question(text,data,1)
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=formatted_question, quick_reply=qr))
         return
-    
-    # التعامل مع الإجابة
+
+    # معالجة الإجابة
     if game and not game['answered']:
         is_correct = verify_answer(game['type'], game['question'], game['answer'], text)
-        user = get_user(user_id, "لاعب")
         if is_correct:
-            new_points = add_points(user_id)
+            new_points = add_points(user_id,name)
             mark_answered(game_id)
-            if new_points % 10 == 0:
-                # إعلان الفائز عند كل 10 نقاط
+            if game['count'] >=10:
                 delete_game(game_id)
-                congrats = f"🎉 رائع يا {user['name']}!\n✅ أكملت 10 نقاط!\n🌟 نقاطك الإجمالية: {new_points}"
+                congrats = f"🎉 رائع يا {name}!\n✅ أكملت اللعبة\n🌟 نقاطك: {new_points}"
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text=congrats, quick_reply=qr))
             else:
                 data = generate_question(game['type'])
-                new_question = data.get('question') or data.get('word') or data.get('scrambled')
+                new_question = data.get('question') or data.get('word') or data.get('scrambled') or data.get('description')
                 new_answer = data.get('answer') or data.get('word')
-                new_count = update_game(game_id, new_question, new_answer)
-                response_text = f"✅ صحيح!\n\n{format_question(game['type'], data, new_count)}"
+                new_count = update_game(game_id,new_question,new_answer)
+                response_text = f"✅ صحيح!\n{format_question(game['type'],data,new_count)}"
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_text, quick_reply=qr))
         else:
-            hint = f"❌ خطأ!\n\nالإجابة الصحيحة: {game['answer']}\n\n"
+            # إجابة خاطئة، نفس اللعبة
             data = generate_question(game['type'])
-            new_question = data.get('question') or data.get('word') or data.get('scrambled')
+            new_question = data.get('question') or data.get('word') or data.get('scrambled') or data.get('description')
             new_answer = data.get('answer') or data.get('word')
-            new_count = update_game(game_id, new_question, new_answer)
-            response_text = hint + format_question(game['type'], data, new_count)
+            new_count = update_game(game_id,new_question,new_answer)
+            response_text = f"❌ خطأ!\nالإجابة الصحيحة: {game['answer']}\n{format_question(game['type'],data,new_count)}"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_text, quick_reply=qr))
 
 @app.route("/")
 def home():
     return "<h1>LINE Bot Active ✅</h1><p>نظام الألعاب التفاعلي يعمل بنجاح!</p>"
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__=="__main__":
+    port = int(os.environ.get("PORT",5000))
+    app.run(host="0.0.0.0",port=port,debug=False)
