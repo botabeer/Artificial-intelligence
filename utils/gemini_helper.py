@@ -5,16 +5,22 @@
 
 import google.generativeai as genai
 import json
+import os
+
 
 class GeminiHelper:
     def __init__(self, api_key):
         if api_key:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-pro')
+            # ✅ إصلاح: تحديد إصدار v1 بدلاً من v1beta لتجنب الخطأ 404
+            genai.configure(
+                api_key=api_key,
+                client_options={"api_version": "v1"}
+            )
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             self.enabled = True
         else:
             self.enabled = False
-    
+
     def verify_answer(self, question, correct_answer, user_answer):
         """التحقق من الإجابة باستخدام Gemini"""
         if not self.enabled:
