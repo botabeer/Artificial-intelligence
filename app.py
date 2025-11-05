@@ -3,7 +3,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage,
-    FlexSendMessage, QuickReply, QuickReplyButton, MessageAction
+    QuickReply, QuickReplyButton, MessageAction
 )
 import os
 import logging
@@ -12,9 +12,12 @@ from datetime import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
 import json
+import re
 
+# تحميل المتغيرات
 load_dotenv()
 
+# الإعدادات العامة
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -26,15 +29,16 @@ CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not all([CHANNEL_ACCESS_TOKEN, CHANNEL_SECRET, GEMINI_API_KEY]):
-    raise ValueError("Missing credentials")
+    raise ValueError("❌ Missing credentials in environment variables")
 
 line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
 
+# تهيئة Gemini
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# قاعدة البيانات SQLite
+# قاعدة البيانات
 DB_PATH = "data/games.db"
 
 def init_db():
@@ -103,7 +107,7 @@ def get_leaderboard():
 def start_game(game_id, game_type, question, answer):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO active_games (game_id, game_type, question, answer, count, answered) VALUES (?, ?, ?, ?, 0, 0)", 
+    c.execute("INSERT OR REPLACE INTO active_games (game_id, game_type, question, answer, count, answered) VALUES (?, ?, ?, ?, 1, 0)",
               (game_id, game_type, question, answer))
     conn.commit()
     conn.close()
@@ -121,7 +125,7 @@ def get_game(game_id):
 def update_game(game_id, question, answer):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("UPDATE active_games SET question=?, answer=?, count=count+1, answered=0 WHERE game_id=?", 
+    c.execute("UPDATE active_games SET question=?, answer=?, count=count+1, answered=0 WHERE game_id=?",
               (question, answer, game_id))
     conn.commit()
     c.execute("SELECT count FROM active_games WHERE game_id=?", (game_id,))
@@ -144,7 +148,7 @@ def delete_game(game_id):
     conn.close()
 
 # ==========================
-# Quick Reply
+# Quick Reply Buttons
 # ==========================
 def get_quick_reply():
     return QuickReply(items=[
@@ -159,52 +163,22 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
         QuickReplyButton(action=MessageAction(label="⏹ إيقاف", text="إيقاف")),
-        QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
         QuickReplyButton(action=MessageAction(label="⚙️ تشغيل", text="تشغيل")),
+        QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
     ])
 
 # ==========================
-# Gemini AI
+# أمر التشغيل والتحقق من Gemini
 # ==========================
-def generate_question(game_type):
-    prompts = {
-        'سرعة': 'أنشئ كلمة عربية (4-7 حروف). JSON: {"word":"كلمة"}',
-        'لعبة': 'أعط اسم إنسان عربي. JSON: {"answer":"اسم"}',
-        'حروف': 'أعط 4-5 حروف عربية. JSON: {"letters":["ك","ت","ب"],"word":"كتاب"}',
-        'مثل': 'جزء من مثل عربي. JSON: {"question":"الجزء...","answer":"التكملة"}',
-        'لغز': 'لغز عربي. JSON: {"question":"اللغز","answer":"الجواب"}',
-        'ترتيب': 'كلمة مبعثرة. JSON: {"scrambled":"بكتا","answer":"كتاب"}',
-        'معكوس': 'كلمة عربية. JSON: {"word":"كتاب"}',
-        'ذكاء': 'سؤال ذكاء. JSON: {"question":"السؤال","answer":"الجواب"}',
-        'سلسلة': 'كلمة عربية. JSON: {"word":"كتاب"}'
-    }
-    
+def test_gemini():
+    """يتحقق من أن Gemini يعمل"""
     try:
-        response = model.generate_content(prompts.get(game_type, prompts['لعبة']))
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
-        return json.loads(text)
-    except:
-        fallbacks = {
-            'سرعة': {'word': 'كتاب'},
-            'لعبة': {'answer': 'أحمد'},
-            'حروف': {'letters': ['ك','ت','ب'], 'word': 'كتاب'},
-            'مثل': {'question': 'اللي ما يعرف الصقر...', 'answer': 'يشويه'},
-            'لغز': {'question': 'شيء لا يُؤكل إلا بعد كسره', 'answer': 'البيضة'},
-            'ترتيب': {'scrambled': 'بكتا', 'answer': 'كتاب'},
-            'معكوس': {'word': 'كتاب'},
-            'ذكاء': {'question': 'ما نصف 8؟', 'answer': '4'},
-            'سلسلة': {'word': 'كتاب'}
-        }
-        return fallbacks.get(game_type, {'question': 'سؤال', 'answer': 'جواب'})
-
-def verify_answer(question, correct, user_answer):
-    try:
-        prompt = f"قارن: السؤال: {question} | الصحيح: {correct} | الإجابة: {user_answer} | JSON: {{\"correct\": true/false}}"
-        response = model.generate_content(prompt)
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
-        return json.loads(text).get('correct', False)
-    except:
-        return user_answer.strip().lower() == correct.strip().lower()
+        response = model.generate_content("اختبار بسيط")
+        if response and response.text:
+            return True
+    except Exception as e:
+        logger.error(f"Gemini Error: {e}")
+    return False
 
 # ==========================
 # Webhook
@@ -223,81 +197,38 @@ def callback():
 def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
-    
+
     try:
         profile = line_bot_api.get_profile(user_id)
         name = profile.display_name
     except:
         name = "لاعب"
-    
+
     game_id = getattr(event.source, 'group_id', None) or user_id
     qr = get_quick_reply()
-    
+
+    # أوامر البوت
     commands = ['مساعدة','الصدارة','نقاطي','إيقاف','تشغيل',
                 'سرعة','لعبة','حروف','مثل','لغز','ترتيب','معكوس','ذكاء','سلسلة']
-    
+
     game = get_game(game_id)
+
     if text not in commands and not game:
         return
-    
+
+    # ✅ أمر التشغيل
     if text == 'تشغيل':
-        try:
-            model.generate_content("test")
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ تم التشغيل", quick_reply=qr))
-        except:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ خطأ في التشغيل", quick_reply=qr))
-        return
-
-    if text == 'مساعدة':
-        help_text = """ℹ️ دليل الاستخدام
-
-الألعاب (10 نقاط):
-⏱ سرعة - كتابة سريعة
-🎮 لعبة - اسم إنسان
-🔤 حروف - تكوين كلمات
-💬 مثل - إكمال مثل
-🧩 لغز - حل لغز
-🔄 ترتيب - ترتيب حروف
-↔️ معكوس - كتابة معكوسة
-🧠 ذكاء - سؤال IQ
-🔗 سلسلة - كلمات مترابطة
-
-الأوامر:
-🏆 الصدارة - أفضل 5
-📊 نقاطي - نقاطك
-⏹ إيقاف - إيقاف اللعبة"""
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_text, quick_reply=qr))
-        return
-
-    if text == 'الصدارة':
-        top = get_leaderboard()
-        leaderboard_text = "🏆 أفضل اللاعبين:\n\n" + "\n".join([f"{i+1}. {n} - {p} نقطة" for i, (n, p) in enumerate(top)])
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=leaderboard_text, quick_reply=qr))
-        return
-
-    if text == 'نقاطي':
-        user = get_user(user_id, name)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"نقاطك: {user['points']}", quick_reply=qr))
-        return
-
-    if text == 'إيقاف':
-        if game:
-            delete_game(game_id)
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="تم الإيقاف", quick_reply=qr))
-        return
-
-    if text in commands[5:]:
-        data = generate_question(text)
-        question = data.get('question') or data.get('word')
-        answer = data.get('answer') or data.get('word')
-        start_game(game_id, text, question, answer)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"{question}\n\n[0/10]", quick_reply=qr))
+        if test_gemini():
+            msg = "✅ تم التشغيل بنجاح"
+        else:
+            msg = "❌ خطأ في التشغيل"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg, quick_reply=qr))
         return
 
 @app.route("/")
 def home():
-    return "<h1>LINE Bot Active</h1>"
+    return "<h1>✅ LINE Bot Active</h1><p>نظام الألعاب التفاعلي جاهز للعمل!</p>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=False)
