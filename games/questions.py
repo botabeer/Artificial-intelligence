@@ -1,6 +1,13 @@
-class Questions:
-    def start(self):
-        return {"question": "ما هو عاصمة فرنسا؟", "emoji": "🧩"}
+class Personality:
+    QUESTIONS = [
+        "هل تحب المغامرة؟",
+        "هل تفضل العمل الجماعي أم الفردي؟",
+        "كيف تتصرف عند مشكلة كبيرة؟"
+    ]
 
-    def check_answer(self, data, answer):
-        return answer.strip().lower() == "باريس"
+    def start(self):
+        return {"questions": self.QUESTIONS, "emoji": "🧍‍♂️"}
+
+    def analyze(self, answers):
+        score = sum(1 for a in answers if a.lower() in ["نعم", "دائمًا", "صحيح"])
+        return f"تحليل شخصيتك: مستوى النشاط {score}/3"
