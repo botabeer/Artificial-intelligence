@@ -1,6 +1,6 @@
 import random
 
-class HumanAnimalPlantGame:
+class HumanAnimalPlant:
     # قوائم كلمات لكل فئة
     CATEGORIES = {
         "إنسان": ["دكتور", "أحمد", "ريم", "معلم", "شرطي"],
