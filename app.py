@@ -1,3 +1,9 @@
+"""
+LINE Bot - نظام ألعاب ذكي بالكامل
+يعتمد على Gemini AI لتوليد الأسئلة ديناميكياً
+تصميم احترافي - أبيض وأسود ورمادي
+"""
+
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
@@ -38,7 +44,7 @@ handler = WebhookHandler(CHANNEL_SECRET)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# Database بسيط في الذاكرة
+# Database بسيط في الذاكرة (يمكن استبداله بـ SQLite)
 users_db = {}  # {user_id: {'name': '', 'points': 0, 'games': 0}}
 active_games = {}  # {game_id: {'type': '', 'question': '', 'answer': '', 'count': 0}}
 
@@ -59,21 +65,23 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
         QuickReplyButton(action=MessageAction(label="⏹ إيقاف", text="إيقاف")),
         QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
+        QuickReplyButton(action=MessageAction(label="▶️ تشغيل", text="تشغيل")),
     ])
 
 # ==========================
 # Gemini AI - توليد الأسئلة
 # ==========================
 def generate_question(game_type):
-    """توليد سؤال ديناميكي حسب نوع اللعبة باستخدام Gemini AI"""
+    """توليد سؤال ديناميكي حسب نوع اللعبة"""
     prompts = {
         'سرعة': """
 أنشئ كلمة عربية واحدة (من 4-7 حروف) للاعب أن يكتبها بسرعة.
 أرجع JSON فقط: {"word": "الكلمة"}
 """,
-        'لعبة': """
-أنشئ سؤال لعبة إنسان-حيوان-نبات. أعط مثال على: النوع، الإجابة الصحيحة.
-أرجع JSON فقط: {"question": "اختر أحدهم: إنسان/حيوان/نبات؟", "answer": "الإجابة"}
+        'معلومات': """
+أنشئ سؤال معلومات عامة بسيط بإجابة قصيرة (كلمة أو كلمتين).
+مثال: ما عاصمة السعودية؟
+أرجع JSON: {"question": "السؤال", "answer": "الإجابة"}
 """,
         'حروف': """
 أعط 4-5 حروف عربية يمكن تكوين كلمة منها.
@@ -82,39 +90,61 @@ def generate_question(game_type):
         'مثل': """
 أعط جزء من مثل شعبي عربي مشهور ليكمله اللاعب.
 أرجع JSON: {"question": "الجزء الأول...", "answer": "الجزء الثاني"}
+مثال: {"question": "اللي ما يعرف الصقر...", "answer": "يشويه"}
 """,
         'لغز': """
 أنشئ لغز عربي بسيط بإجابة واحدة واضحة.
 أرجع JSON: {"question": "اللغز", "answer": "الإجابة"}
 """,
-        'ترتيب': """
-أعط كلمة عربية مكونة من 4-6 حروف مبعثرة للاعب ليعيد ترتيبها.
-أرجع JSON: {"scrambled": "رتكب", "answer": "كتبَر"}
+        'حساب': """
+أنشئ مسألة حسابية بسيطة (جمع، طرح، أو ضرب) بأرقام أقل من 50.
+أرجع JSON: {"question": "5 + 3", "answer": "8"}
 """,
-        'معكوس': """
-أعط كلمة عربية للاعب ليكتبها بشكل معكوس.
-أرجع JSON: {"word": "كتب", "answer": "بتك"}
+        'عواصم': """
+اسأل عن عاصمة دولة عربية.
+أرجع JSON: {"question": "ما عاصمة الأردن؟", "answer": "عمان"}
+""",
+        'ثقافة': """
+أنشئ سؤال ثقافة عامة عربية (تاريخ، أدب، فن).
+أرجع JSON: {"question": "السؤال", "answer": "الإجابة"}
 """,
         'ذكاء': """
 أنشئ سؤال ذكاء أو منطق بسيط.
 أرجع JSON: {"question": "السؤال", "answer": "الإجابة"}
 """,
+        'ترتيب': """
+أعط كلمة عربية مبعثرة الحروف، ليقوم اللاعب بترتيبها.
+أرجع JSON: {"scrambled": "تليمر", "word": "مترحل"}
+""",
+        'معكوس': """
+أعط كلمة عربية ليكتبها اللاعب بشكل معكوس.
+أرجع JSON: {"word": "كتاب"}
+""",
         'سلسلة': """
-أنشئ سلسلة كلمات مترابطة، أعط أول كلمة وأجب عن التالية.
-أرجع JSON: {"question": "ابدأ السلسلة بكلمة", "answer": "الكلمة التالية"}
+ابدأ سلسلة كلمات مترابطة، أعط الكلمة الأولى.
+أرجع JSON: {"word": "قلم"}
 """
     }
+    
     try:
-        prompt = prompts.get(game_type, prompts['ذكاء'])
+        prompt = prompts.get(game_type, prompts['معلومات'])
         response = model.generate_content(prompt)
         data = json.loads(response.text)
         return data
     except Exception as e:
         logger.error(f"Gemini error: {e}")
-        return {'word': 'كتاب', 'letters': ['ك','ت','ب'], 'example_word': 'كتاب', 'question': 'ما عاصمة السعودية؟', 'answer': 'الرياض', 'scrambled': 'رتكب'}
+        # Fallback
+        return {
+            'question': 'ما عاصمة السعودية؟',
+            'answer': 'الرياض',
+            'word': 'كتاب',
+            'letters': ['ك', 'ت', 'ب'],
+            'example_word': 'كتاب',
+            'scrambled': 'تليمر'
+        }
 
 def verify_answer(question, correct_answer, user_answer):
-    """التحقق الذكي من الإجابة باستخدام Gemini AI"""
+    """التحقق الذكي من الإجابة باستخدام Gemini"""
     try:
         prompt = f"""
 قارن الإجابتين وحدد هل هما متطابقتان أو متشابهتان في المعنى:
@@ -123,11 +153,6 @@ def verify_answer(question, correct_answer, user_answer):
 إجابة اللاعب: {user_answer}
 
 أرجع JSON فقط: {{"correct": true/false}}
-قواعد:
-- إذا كانت الكلمات متطابقة = true
-- إذا كان المعنى نفسه = true
-- أخطاء إملائية بسيطة = true
-- إجابة مختلفة = false
 """
         response = model.generate_content(prompt)
         result = json.loads(response.text)
@@ -153,12 +178,18 @@ def get_leaderboard():
     return sorted_users[:10]
 
 # ==========================
-# Flex Messages
+# Flex Messages - تصميم رسمي
 # ==========================
 def create_leaderboard_flex():
     leaderboard = get_leaderboard()
+    
     if not leaderboard:
-        contents = [{"type": "text", "text": "لا يوجد لاعبون بعد", "align": "center", "color": "#666666"}]
+        contents = [{
+            "type": "text",
+            "text": "لا يوجد لاعبون بعد",
+            "align": "center",
+            "color": "#666666"
+        }]
     else:
         contents = []
         medals = ['🥇', '🥈', '🥉']
@@ -180,11 +211,17 @@ def create_leaderboard_flex():
     
     bubble = {
         "type": "bubble",
-        "body": {"type": "box","layout": "vertical","contents":[
-            {"type": "text","text": "🏆 لوحة الصدارة","weight": "bold","size": "xl","color": "#000000","align": "center"},
-            {"type": "separator","margin": "lg","color": "#E0E0E0"},
-            {"type": "box","layout": "vertical","contents": contents,"margin": "lg"}
-        ],"paddingAll": "20px","backgroundColor": "#FFFFFF"}
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": "🏆 لوحة الصدارة", "weight": "bold", "size": "xl", "color": "#000000", "align": "center"},
+                {"type": "separator", "margin": "lg", "color": "#E0E0E0"},
+                {"type": "box", "layout": "vertical", "contents": contents, "margin": "lg"}
+            ],
+            "paddingAll": "20px",
+            "backgroundColor": "#FFFFFF"
+        }
     }
     return FlexSendMessage(alt_text="لوحة الصدارة", contents=bubble)
 
@@ -212,17 +249,29 @@ def create_winner_flex(name, total_points):
 # ==========================
 def start_game(game_type, game_id, user_id):
     data = generate_question(game_type)
-    active_games[game_id] = {'type': game_type, 'data': data, 'count': 0, 'user_id': user_id}
+    active_games[game_id] = {
+        'type': game_type,
+        'data': data,
+        'count': 0,
+        'user_id': user_id
+    }
     
+    # صياغة السؤال حسب نوع اللعبة
     if game_type == 'سرعة':
         question = f"اكتب الكلمة التالية:\n\n{data.get('word', 'كتاب')}"
     elif game_type == 'حروف':
-        letters = ' - '.join(data.get('letters', ['ك','ت','ب']))
+        letters = ' - '.join(data.get('letters', ['ك', 'ت', 'ب']))
         question = f"كوّن كلمة من الحروف:\n\n{letters}"
+    elif game_type == 'مثل':
+        question = data.get('question', 'أكمل المثل')
+    elif game_type == 'لغز':
+        question = data.get('question', 'حل اللغز')
     elif game_type == 'ترتيب':
-        question = f"رتب الكلمة التالية:\n\n{data.get('scrambled', '')}"
+        question = f"رتب الكلمة المبعثرة:\n\n{data.get('scrambled', '')}"
     elif game_type == 'معكوس':
         question = f"اكتب الكلمة بشكل معكوس:\n\n{data.get('word', '')}"
+    elif game_type == 'سلسلة':
+        question = f"ابدأ سلسلة الكلمات:\n\n{data.get('word', '')}"
     else:
         question = data.get('question', 'سؤال')
     
@@ -231,47 +280,63 @@ def start_game(game_type, game_id, user_id):
 def check_answer(game_id, user_id, answer, name):
     if game_id not in active_games:
         return None
+    
     game = active_games[game_id]
     data = game['data']
     
-    if game['type'] == 'سرعة':
+    # استخراج الإجابة الصحيحة حسب نوع اللعبة
+    game_type = game['type']
+    
+    if game_type == 'سرعة' or game_type == 'معكوس' or game_type == 'سلسلة':
         correct = data.get('word', '')
-        question = correct
-    elif game['type'] == 'حروف':
+        question = f"{correct}"
+    elif game_type == 'حروف':
         correct = data.get('example_word', '')
-        question = ' - '.join(data.get('letters', []))
-    elif game['type'] == 'ترتيب':
+        question = f"{data.get('letters', [])}"
+    elif game_type == 'ترتيب':
+        correct = data.get('word', '')
+        question = f"{data.get('scrambled', '')}"
+    elif game_type == 'مثل' or game_type == 'لغز' or game_type == 'معلومات':
         correct = data.get('answer', '')
-        question = data.get('scrambled', '')
-    elif game['type'] == 'معكوس':
-        correct = data.get('answer', '')
-        question = data.get('word', '')
+        question = data.get('question', '')
     else:
         correct = data.get('answer', '')
         question = data.get('question', '')
     
+    # التحقق من الإجابة
     is_correct = verify_answer(question, correct, answer)
     
     if is_correct:
         add_points(user_id, name, 1)
         game['count'] += 1
+        
         if game['count'] >= 10:
             user = get_user(user_id, name)
             del active_games[game_id]
             return {'final': True, 'points': user['points']}
         else:
+            # سؤال جديد
             new_data = generate_question(game['type'])
             game['data'] = new_data
-            if game['type'] == 'سرعة':
-                new_q = new_data.get('word', 'كتاب')
-            elif game['type'] == 'حروف':
-                new_q = ' - '.join(new_data.get('letters', ['ك','ت','ب']))
-            elif game['type'] == 'ترتيب':
-                new_q = new_data.get('scrambled', '')
-            elif game['type'] == 'معكوس':
-                new_q = new_data.get('word', '')
+            
+            if game_type == 'سرعة':
+                new_q = f"اكتب الكلمة:\n\n{new_data.get('word', 'كتاب')}"
+            elif game_type == 'حروف':
+                letters = ' - '.join(new_data.get('letters', ['ك']))
+                new_q = f"كوّن كلمة من:\n\n{letters}"
+            elif game_type == 'مثل':
+                new_q = new_data.get('question', 'أكمل المثل')
+            elif game_type == 'لغز':
+                new_q = new_data.get('question', 'حل اللغز')
+            elif game_type == 'ترتيب':
+                new_q = f"رتب الكلمة المبعثرة:\n\n{new_data.get('scrambled', '')}"
+            elif game_type == 'معكوس':
+                new_q = f"اكتب الكلمة بشكل معكوس:\n\n{new_data.get('word', '')}"
+            elif game_type == 'سلسلة':
+                new_q = f"ابدأ سلسلة الكلمات:\n\n{new_data.get('word', '')}"
             else:
-                new_q = new_data.get('question', '')
+                new_q = new_data.get('question', 'سؤال')
+            
             return {'correct': True, 'count': game['count'], 'next': new_q}
     
     return {'correct': False}
@@ -303,12 +368,41 @@ def handle_message(event):
     game_id = getattr(event.source, 'group_id', None) or user_id
     quick_reply = get_quick_reply()
     
+    # الأوامر المسموحة فقط
     commands = ['مساعدة', 'الصدارة', 'نقاطي', 'إيقاف', 
-                'سرعة', 'لعبة', 'حروف', 'مثل', 'لغز', 'ترتيب', 'معكوس', 'ذكاء', 'سلسلة']
+                'سرعة', 'معلومات', 'حروف', 'مثل', 'لغز', 'حساب', 'عواصم', 'ثقافة', 'ذكاء',
+                'ترتيب', 'معكوس', 'سلسلة', 'لعبة', 'تشغيل']
     
-    if text not in commands and game_id not in active_games:
+    # أمر تشغيل للتحقق من Gemini AI
+    if text == 'تشغيل':
+        try:
+            test_prompt = "أعطني كلمة عربية واحدة فقط"
+            response = model.generate_content(test_prompt)
+            data = json.loads(response.text)
+            word = data.get('word', None)
+            
+            if word:
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(
+                        text=f"✅ Gemini AI يعمل! مثال كلمة: {word}",
+                        quick_reply=quick_reply
+                    )
+                )
+            else:
+                raise Exception("لم يتم الحصول على كلمة")
+                
+        except Exception as e:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(
+                    text=f"❌ فشل الاتصال بـ Gemini AI.\nالخطأ: {str(e)}",
+                    quick_reply=quick_reply
+                )
+            )
         return
     
+    # المساعدة
     if text == 'مساعدة':
         help_text = """ℹ️ دليل الاستخدام
 
@@ -330,18 +424,21 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_text, quick_reply=quick_reply))
         return
     
+    # الصدارة
     if text == 'الصدارة':
         flex = create_leaderboard_flex()
         flex.quick_reply = quick_reply
         line_bot_api.reply_message(event.reply_token, flex)
         return
     
+    # النقاط
     if text == 'نقاطي':
         user = get_user(user_id, name)
         line_bot_api.reply_message(event.reply_token, 
             TextSendMessage(text=f"نقاطك: {user['points']}\nألعاب: {user['games']}", quick_reply=quick_reply))
         return
     
+    # إيقاف
     if text == 'إيقاف':
         if game_id in active_games:
             del active_games[game_id]
@@ -349,12 +446,14 @@ def handle_message(event):
                 TextSendMessage(text="تم الإيقاف", quick_reply=quick_reply))
         return
     
+    # بدء لعبة
     if text in commands[4:]:  # ألعاب
         question = start_game(text, game_id, user_id)
         line_bot_api.reply_message(event.reply_token, 
             TextSendMessage(text=f"اللعبة: {text}\n\n{question}\n\n[0/10]", quick_reply=quick_reply))
         return
     
+    # التحقق من الإجابة
     if game_id in active_games:
         result = check_answer(game_id, user_id, text, name)
         if result:
