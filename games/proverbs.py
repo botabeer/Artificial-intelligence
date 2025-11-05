@@ -1,6 +1,13 @@
-class Proverbs:
-    def start(self):
-        return {"question": "أكمل المثل: اللي ما يعرف الصقر ...", "emoji": "💬"}
+import random
 
-    def check_answer(self, data, answer):
-        return answer.strip() == "يشويه"
+class Proverbs:
+    QUESTIONS = [
+        "أخبرنا عن سر مضحك لك",
+        "هل كسرت قاعدة من قبل؟",
+        "ما هو أكبر خوف لديك؟",
+        "من هو صديقك المفضل؟",
+        "هل سبق أن كذبت على صديق؟"
+    ]
+
+    def start(self):
+        return {"question": random.choice(self.QUESTIONS), "emoji": "💬"}
