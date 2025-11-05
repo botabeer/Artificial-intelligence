@@ -1,24 +1,39 @@
-# games/points.py
+import sqlite3
+import os
 
-class PointsManager:
-    def __init__(self):
-        # نخزن النقاط لكل لاعب باستخدام معرفه (ID)
-        self.scores = {}
+DB_PATH = "data/games.db"
 
-    def add_points(self, user_id, points):
-        """إضافة نقاط للاعب"""
-        if user_id not in self.scores:
-            self.scores[user_id] = 0
-        self.scores[user_id] += points
-        return self.scores[user_id]
+def init_db():
+    os.makedirs("data", exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+                 user_id TEXT PRIMARY KEY,
+                 name TEXT,
+                 points INTEGER DEFAULT 0,
+                 games INTEGER DEFAULT 0)""")
+    conn.commit()
+    conn.close()
 
-    def get_points(self, user_id):
-        """إرجاع نقاط اللاعب"""
-        return self.scores.get(user_id, 0)
+def add_point(user_id, name):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO users(user_id,name,points,games) VALUES (?,?,0,0)", (user_id,name))
+    c.execute("UPDATE users SET points=points+1, games=games+1 WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
 
-    def reset_points(self, user_id=None):
-        """إعادة تعيين النقاط. إذا لم يُحدد user_id، يتم إعادة تعيين جميع النقاط"""
-        if user_id:
-            self.scores[user_id] = 0
-        else:
-            self.scores = {}
+def reset_points():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("UPDATE users SET points=0, games=0")
+    conn.commit()
+    conn.close()
+
+def get_top5():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT name, points FROM users ORDER BY points DESC LIMIT 5")
+    top = c.fetchall()
+    conn.close()
+    return top
