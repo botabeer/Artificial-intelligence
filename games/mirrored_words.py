@@ -1,6 +1,9 @@
 class MirroredWords:
-    def start(self):
-        return {"question": "اكتب معكوس كلمة: عالم", "emoji": "↔️"}
+    WORDS = ["باب", "مدرسة", "قلم", "حاسوب", "كتاب"]
 
-    def check_answer(self, data, answer):
-        return answer.strip() == "مالع"
+    def start(self):
+        word = random.choice(self.WORDS)
+        return {"word": word, "emoji": "↔️"}
+
+    def check_answer(self, data, user_input):
+        return user_input.strip() == data['word'][::-1]
