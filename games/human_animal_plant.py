@@ -1,8 +1,16 @@
-class HumanAnimalPlant:
-    def start(self):
-        return {"question": "أذكر اسم إنسان، حيوان، نبات يبدأ بحرف الألف", "emoji": "🎮"}
+import random
 
-    def check_answer(self, data, answer):
-        # مثال على إجابات صحيحة
-        valid_answers = ["أحمد","أسد","أرزة"]
-        return answer.strip() in valid_answers
+class HumanAnimalPlant:
+    CATEGORIES = {
+        "إنسان": ["محمد", "سعيد", "فاطمة", "ليلى"],
+        "حيوان": ["قط", "كلب", "أسد", "زرافة"],
+        "نبات": ["زهرة", "شجرة", "عشب", "صبار"],
+        "جماد": ["كرسي", "طاولة", "حاسوب", "ساعة"]
+    }
+
+    def start(self, category):
+        word = random.choice(self.CATEGORIES.get(category, []))
+        return {"word": word, "emoji": "🎮"}
+
+    def check_answer(self, data, user_input):
+        return user_input.strip() == data['word']
