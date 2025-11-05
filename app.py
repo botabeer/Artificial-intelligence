@@ -36,7 +36,7 @@ handler = WebhookHandler(CHANNEL_SECRET)
 
 # تهيئة Gemini
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # قاعدة البيانات
 DB_PATH = "data/games.db"
