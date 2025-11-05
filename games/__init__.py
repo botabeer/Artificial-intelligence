@@ -5,7 +5,7 @@ from .proverbs import Proverbs
 from .questions import Questions
 from .reversed_word import ReversedWord
 from .mirrored_words import MirroredWords
-from .iq_questions import IQGame
+from .iq_questions import IQQuestions
 from .scramble_word import ScrambleWord
 from .chain_words import ChainWords
 
@@ -17,7 +17,7 @@ __all__ = [
     'Questions',
     'ReversedWord',
     'MirroredWords',
-    'IQGame',
+    'IQQuestions',
     'ScrambleWord',
     'ChainWords'
 ]
