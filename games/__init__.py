@@ -1,25 +1,23 @@
 from .fast_typing import FastTyping
-from .human_animal_plant import CategoryGame
-from .letters_words import WordsGame
+from .human_animal_plant import HumanAnimalPlant
+from .letters_words import LettersWords
 from .proverbs import Proverbs
-from .questions import AnalysisGame, CompatibilityGame, TruthGame
+from .questions import Questions
 from .reversed_word import ReversedWord
 from .mirrored_words import MirroredWords
 from .iq_questions import IQGame
-from .scramble_word import ArrangeGame
-from .chain_words import GuessGame
+from .scramble_word import ScrambleWord
+from .chain_words import ChainWords
 
 __all__ = [
     'FastTyping',
-    'CategoryGame',
-    'WordsGame',
+    'HumanAnimalPlant',
+    'LettersWords',
     'Proverbs',
-    'AnalysisGame',
-    'CompatibilityGame',
-    'TruthGame',
+    'Questions',
     'ReversedWord',
     'MirroredWords',
     'IQGame',
-    'ArrangeGame',
-    'GuessGame'
+    'ScrambleWord',
+    'ChainWords'
 ]
