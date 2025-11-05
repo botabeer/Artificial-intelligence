@@ -1,4 +1,4 @@
-class Personality:
+class questionspy:
     QUESTIONS = [
         "هل تحب المغامرة؟",
         "هل تفضل العمل الجماعي أم الفردي؟",
