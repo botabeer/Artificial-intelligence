@@ -1,9 +1,3 @@
-"""
-LINE Bot - نظام ألعاب ذكي بالكامل
-يعتمد على Gemini AI لتوليد الأسئلة ديناميكياً
-تصميم احترافي - أبيض وأسود ورمادي
-"""
-
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
