@@ -1,6 +1,7 @@
 import random
 
 class LetterArrange:
+    """لعبة ترتيب الحروف لتكوين الكلمة الصحيحة"""
     WORDS = ["مدرسة", "حاسوب", "قلم", "كتاب", "نافذة", "حديقة", "مكتبة", "مطبخ", "سرير", "هاتف"]
 
     def start(self):
@@ -11,7 +12,9 @@ class LetterArrange:
     def check_answer(self, data, user_input):
         return user_input.strip() == data['answer']
 
+
 class WordsFromLetters:
+    """لعبة تكوين كلمات من مجموعة حروف"""
     LETTER_SETS = [
         {"letters": ["ك","ت","ا","ب"], "words": ["كتاب"]},
         {"letters": ["م","د","ر","س","ة"], "words": ["مدرسة"]},
