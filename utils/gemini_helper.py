@@ -16,7 +16,7 @@ class GeminiHelper:
                 api_key=api_key,
                 client_options={"api_version": "v1"}
             )
-            self.model = genai.GenerativeModel('‏gemini-2.5-pro')
+            self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
             self.enabled = True
         else:
             self.enabled = False
