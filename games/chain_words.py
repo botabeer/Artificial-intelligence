@@ -1,96 +1,48 @@
+import random
+
 class ChainWordsGame:
-    """لعبة سلسلة الكلمات"""
-    def __init__(self, gemini_helper):
-        self.gemini_helper = gemini_helper
-        self.last_word = None
-        self.expected_letter = None
-        self.used_words = set()
-        self.tries_left = 1  # محاولة واحدة لكل كلمة
-    
+    def __init__(self):
+        # قائمة الأسئلة (تقدر تزيد عليها لاحقاً)
+        self.questions = [
+            {"hint": "🍳 شيء في المطبخ يبدأ بحرف (ق)", "answer": "قدر"},
+            {"hint": "🐾 حيوان يبدأ بحرف (ف)", "answer": "فيل"},
+            {"hint": "🌍 دولة تبدأ بحرف (م)", "answer": "مصر"},
+            {"hint": "🏠 شيء في البيت يبدأ بحرف (س)", "answer": "سجادة"},
+            {"hint": "🚗 شيء في السيارة يبدأ بحرف (ك)", "answer": "كرسي"},
+            {"hint": "🪴 نبات يبدأ بحرف (ن)", "answer": "نعناع"},
+            {"hint": "🎮 شيء في الألعاب يبدأ بحرف (خ)", "answer": "خوذة"},
+            {"hint": "📚 شيء في المدرسة يبدأ بحرف (د)", "answer": "دفتر"},
+            {"hint": "👕 شيء تلبسه يبدأ بحرف (ق)", "answer": "قميص"},
+            {"hint": "💎 شيء لامع يبدأ بحرف (م)", "answer": "مرآة"},
+            {"hint": "🍎 فاكهة تبدأ بحرف (ت)", "answer": "تفاح"},
+            {"hint": "🍊 فاكهة تبدأ بحرف (ب)", "answer": "برتقال"},
+            {"hint": "🍇 فاكهة تبدأ بحرف (ع)", "answer": "عنب"},
+            {"hint": "🥦 خضار يبدأ بحرف (خ)", "answer": "خس"},
+            {"hint": "🚪 شيء في الغرفة يبدأ بحرف (ب)", "answer": "باب"},
+            {"hint": "🕰️ شيء في الجدار يبدأ بحرف (س)", "answer": "ساعة"},
+            {"hint": "🦷 شيء في الفم يبدأ بحرف (ل)", "answer": "لسان"},
+            {"hint": "🪑 شيء تجلس عليه يبدأ بحرف (ك)", "answer": "كرسي"},
+            {"hint": "🐦 طائر يبدأ بحرف (ب)", "answer": "ببغاء"},
+            {"hint": "🐠 حيوان يعيش في البحر يبدأ بحرف (س)", "answer": "سمك"},
+        ]
+        self.current_question = None
+
     def generate_question(self):
-        """بدء اللعبة بكلمة"""
-        starting_words = ['كتاب', 'مدرسة', 'شمس', 'قلم', 'بيت', 'حديقة', 'طائر', 'نهر']
-        import random
-        self.last_word = random.choice(starting_words)
-        self.used_words.add(self.last_word)
-        self.expected_letter = self._normalize_last_letter(self.last_word)
-        
-        return f"🔗 سلسلة الكلمات!\n\nالكلمة: {self.last_word}\n\nاكتب كلمة تبدأ بحرف: {self.expected_letter}\n\n💡 +10 نقاط لكل كلمة صحيحة"
-    
-    def _normalize_last_letter(self, word):
-        """تطبيع الحرف الأخير"""
-        if not word:
-            return 'ا'
-        
-        last = word[-1]
-        
-        # تطبيع الحروف
-        normalization = {
-            'ة': 'ت',
-            'ى': 'ي',
-            'أ': 'ا',
-            'إ': 'ا',
-            'آ': 'ا',
-            'ؤ': 'و',
-            'ئ': 'ي'
-        }
-        
-        # إذا كان الحرف الأخير همزة، نأخذ الحرف قبلها
-        if last == 'ء':
-            if len(word) > 1:
-                last = word[-2]
-            else:
-                last = 'ا'
-        
-        return normalization.get(last, last)
-    
-    def check_answer(self, user_answer):
-        """التحقق من الكلمة"""
-        word = user_answer.strip()
-        
-        # تحقق من عدم تكرار الكلمة
-        if word in self.used_words:
+        """يرسل سؤال عشوائي"""
+        self.current_question = random.choice(self.questions)
+        return self.current_question["hint"]
+
+    def check_answer(self, user_input):
+        """يتأكد من صحة الإجابة"""
+        if not self.current_question:
             return False
-        
-        # تحقق من الحرف الأول
-        if not word or word[0] != self.expected_letter:
-            return False
-        
-        # تحقق من صحة الكلمة باستخدام AI
-        is_valid = self._validate_word(word)
-        
-        if is_valid:
-            self.used_words.add(word)
-            self.last_word = word
-            self.expected_letter = self._normalize_last_letter(word)
-            return True
-        
-        return False
-    
-    def _validate_word(self, word):
-        """التحقق من صحة الكلمة"""
-        if self.gemini_helper.enabled:
-            try:
-                prompt = f'هل "{word}" كلمة عربية صحيحة؟ أجب بنعم أو لا فقط.'
-                import google.generativeai as genai
-                response = self.gemini_helper.model.generate_content(prompt)
-                result = response.text.strip().lower()
-                return 'نعم' in result or 'yes' in result
-            except:
-                pass
-        
-        # قبول كلمات طويلة (احتياطي)
-        return len(word) >= 3
-    
+
+        correct = self.current_question["answer"].strip().lower()
+        user_text = user_input.strip().lower()
+        return user_text == correct
+
     def get_correct_answer(self):
-        """الحصول على الإجابة"""
-        return f"✅ الكلمة التالية تبدأ بـ: {self.expected_letter}"
-    
-    def decrement_tries(self):
-        """لا محاولات إضافية"""
-        return 0
-
-
-class GuessGame(ChainWordsGame):
-    """لعبة التخمين - نفس لعبة سلسلة الكلمات"""
-    pass
+        """يرجع الجواب الصحيح"""
+        if self.current_question:
+            return self.current_question["answer"]
+        return None
