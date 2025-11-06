@@ -1,16 +1,41 @@
-import random
-
-class IQQuestions:
-    QUESTIONS = [
-        {"question": "كم نصف 100؟", "answer": "50"},
-        {"question": "إذا كان لكل شخص 2 تفاحتين، كم تفاحة لـ 3 أشخاص؟", "answer": "6"},
-        {"question": "كم عدد الأضلاع في مثلث؟", "answer": "3"},
-        {"question": "إذا ضربنا 7 في 5، كم الناتج؟", "answer": "35"},
-        {"question": "ما العدد التالي: 2، 4، 6، ?", "answer": "8"}
-    ]
-
-    def start(self):
-        return random.choice(self.QUESTIONS)
-
-    def check_answer(self, data, user_input):
-        return user_input.strip() == data['answer']
+class IQGame:
+    def __init__(self, gemini_helper):
+        self.gemini_helper = gemini_helper
+        self.current_question = None
+        self.current_answer = None
+        self.tries_left = 3
+    
+    def generate_question(self):
+        """توليد سؤال ذكاء"""
+        data = self.gemini_helper.generate_iq_question()
+        self.current_question = data['question']
+        self.current_answer = str(data['answer']).strip()
+        
+        return f"🧠 سؤال ذكاء:\n\n{self.current_question}\n\n💡 لديك {self.tries_left} محاولات"
+    
+    def check_answer(self, user_answer):
+        """التحقق من الإجابة"""
+        user_answer = str(user_answer).strip()
+        
+        # مطابقة مباشرة
+        if user_answer == self.current_answer:
+            return True
+        
+        # مطابقة رقمية
+        try:
+            if float(user_answer) == float(self.current_answer):
+                return True
+        except:
+            pass
+        
+        # استخدام Gemini للتحقق
+        return self.gemini_helper.check_answer_similarity(user_answer, self.current_answer)
+    
+    def get_correct_answer(self):
+        """الحصول على الإجابة الصحيحة"""
+        return self.current_answer
+    
+    def decrement_tries(self):
+        """تقليل عدد المحاولات"""
+        self.tries_left -= 1
+        return self.tries_left
