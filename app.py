@@ -9,6 +9,7 @@ from linebot.models import (
 )
 from dotenv import load_dotenv
 import random
+import time
 
 from utils.db_utils import init_db, add_user, get_user, update_user_score, get_leaderboard
 from utils.gemini_helper import GeminiHelper
@@ -24,8 +25,8 @@ from games.fast_typing import FastTypingGame
 from games.human_animal_plant import HumanAnimalPlantGame
 from games.scramble_word import ScrambleWordGame
 from games.letters_words import LettersWordsGame
-from games.chain_words import GuessGame
-from games.questions import AnalysisGame, CompatibilityGame, TruthGame
+from games.chain_words import ChainWordsGame
+from games.questions import AnalysisGame, CompatibilityGame
 
 # تحميل المتغيرات البيئية
 load_dotenv()
@@ -41,10 +42,12 @@ gemini_helper = GeminiHelper(os.getenv('GEMINI_API_KEY'))
 
 # إعداد Logging
 logging.basicConfig(level=logging.INFO)
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # حالة الألعاب الحالية
 active_games = {}
+group_games = {}  # للألعاب الجماعية
 user_states = {}
 
 # تهيئة قاعدة البيانات
@@ -60,14 +63,13 @@ GAMES = {
     'أسرع': '⚡',
     'لعبة': '🎮',
     'توافق': '❤️',
-    'صراحة': '💬'
+    'سلسلة': '🔗'
 }
 
 def create_games_quick_reply():
     """إنشاء أزرار الألعاب الثابتة"""
     items = []
     
-    # أزرار الألعاب
     for game_name, emoji in GAMES.items():
         items.append(
             QuickReplyButton(
@@ -75,7 +77,6 @@ def create_games_quick_reply():
             )
         )
     
-    # أزرار التحكم
     items.extend([
         QuickReplyButton(
             action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")
@@ -94,6 +95,12 @@ def get_user_id(event):
     """الحصول على معرف المستخدم"""
     return event.source.user_id
 
+def get_group_id(event):
+    """الحصول على معرف المجموعة"""
+    if hasattr(event.source, 'group_id'):
+        return event.source.group_id
+    return None
+
 def get_user_name(event):
     """الحصول على اسم المستخدم"""
     try:
@@ -102,33 +109,41 @@ def get_user_name(event):
     except:
         return "مستخدم"
 
-def start_game(game_type, user_id, event):
+def is_group_chat(event):
+    """التحقق من أن الرسالة في مجموعة"""
+    return hasattr(event.source, 'group_id')
+
+def start_game(game_type, user_id, event, group_id=None):
     """بدء لعبة جديدة"""
     games_map = {
         'ذكاء': IQGame,
         'تحليل': AnalysisGame,
-        'خمن': GuessGame,
+        'خمن': ChainWordsGame,
         'ترتيب': ScrambleWordGame,
         'كلمات': LettersWordsGame,
         'أسرع': FastTypingGame,
         'لعبة': HumanAnimalPlantGame,
         'توافق': CompatibilityGame,
-        'صراحة': TruthGame
+        'سلسلة': ChainWordsGame
     }
     
     if game_type in games_map:
         game = games_map[game_type](gemini_helper)
-        active_games[user_id] = {
+        
+        game_key = group_id if group_id else user_id
+        storage = group_games if group_id else active_games
+        
+        storage[game_key] = {
             'game': game,
             'type': game_type,
-            'question': None
+            'question': None,
+            'players': {},
+            'start_time': time.time()
         }
         
-        # توليد السؤال
         question = game.generate_question()
-        active_games[user_id]['question'] = question
+        storage[game_key]['question'] = question
         
-        # إرسال السؤال
         quick_reply = create_games_quick_reply()
         line_bot_api.reply_message(
             event.reply_token,
@@ -137,46 +152,117 @@ def start_game(game_type, user_id, event):
         return True
     return False
 
-def check_answer(user_id, answer, event):
+def check_answer(user_id, answer, event, group_id=None):
     """التحقق من الإجابة"""
-    if user_id not in active_games:
+    game_key = group_id if group_id else user_id
+    storage = group_games if group_id else active_games
+    
+    if game_key not in storage:
         return False
     
-    game_data = active_games[user_id]
+    game_data = storage[game_key]
     game = game_data['game']
+    game_type = game_data['type']
+    
+    # حساب الوقت
+    elapsed_time = time.time() - game_data.get('start_time', time.time())
     
     is_correct = game.check_answer(answer)
     
     if is_correct:
-        # تحديث النقاط
+        # حساب النقاط
+        points = 1
+        if game_type == 'سلسلة':
+            points = 10
+        elif game_type == 'كلمات':
+            points = 5
+        elif game_type == 'أسرع':
+            points = 10 if elapsed_time < 10 else 5
+        elif game_type == 'ذكاء':
+            points = 10 if elapsed_time < 15 else 5
+        
         user = get_user(user_id)
-        new_score = user['score'] + 1 if user else 1
+        new_score = (user['score'] if user else 0) + points
         
         user_name = get_user_name(event)
         add_user(user_id, user_name)
         update_user_score(user_id, new_score)
         
-        # إرسال رسالة فوز
-        flex_message = create_win_message_flex(
-            points_earned=1,
-            correct_answer=game.get_correct_answer(),
-            total_points=new_score
-        )
+        # رسالة الفوز
+        if game_type == 'تحليل':
+            # تحليل بدون نقاط
+            analysis = game.get_correct_answer()
+            quick_reply = create_games_quick_reply()
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(
+                    text=f"🧍‍♂️ تحليل شخصيتك:\n\n{analysis}\n\nاختر لعبة أخرى:",
+                    quick_reply=quick_reply
+                )
+            )
+        elif game_type == 'أسرع':
+            flex_message = create_win_message_flex(
+                points_earned=points,
+                correct_answer=f"⏱️ الوقت: {elapsed_time:.2f}ث",
+                total_points=new_score
+            )
+            quick_reply = create_games_quick_reply()
+            line_bot_api.reply_message(
+                event.reply_token,
+                [flex_message, TextSendMessage(
+                    text=f"🎉 ممتاز! أسرع إجابة!\n\nهل تريد لعبة أخرى؟",
+                    quick_reply=quick_reply
+                )]
+            )
+        elif game_type == 'كلمات':
+            # لعبة الكلمات - إدارة خاصة
+            if game.has_more_rounds():
+                next_round = game.next_round()
+                quick_reply = create_games_quick_reply()
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    TextSendMessage(
+                        text=f"✅ صحيح! +{points} نقطة\n\n{next_round}",
+                        quick_reply=quick_reply
+                    )
+                )
+                return True
+            else:
+                # انتهت اللعبة
+                winner_msg = game.get_winner_message()
+                flex_message = create_win_message_flex(
+                    points_earned=points,
+                    correct_answer=winner_msg,
+                    total_points=new_score
+                )
+                quick_reply = create_games_quick_reply()
+                line_bot_api.reply_message(
+                    event.reply_token,
+                    [flex_message, TextSendMessage(
+                        text="🎊 انتهت اللعبة!\n\nاختر لعبة أخرى:",
+                        quick_reply=quick_reply
+                    )]
+                )
+        else:
+            flex_message = create_win_message_flex(
+                points_earned=points,
+                correct_answer=game.get_correct_answer(),
+                total_points=new_score
+            )
+            quick_reply = create_games_quick_reply()
+            line_bot_api.reply_message(
+                event.reply_token,
+                [flex_message, TextSendMessage(
+                    text=f"🎉 ممتاز! إجابة صحيحة!\n\nهل تريد لعبة أخرى؟",
+                    quick_reply=quick_reply
+                )]
+            )
         
-        quick_reply = create_games_quick_reply()
-        line_bot_api.reply_message(
-            event.reply_token,
-            [flex_message, TextSendMessage(
-                text=f"🎉 ممتاز! إجابة صحيحة!\n\nهل تريد لعبة أخرى؟",
-                quick_reply=quick_reply
-            )]
-        )
-        
-        # حذف اللعبة الحالية
-        del active_games[user_id]
+        # حذف اللعبة إلا إذا كانت كلمات ولم تنته
+        if game_type != 'كلمات' or not game.has_more_rounds():
+            del storage[game_key]
         return True
     else:
-        # إجابة خاطئة
         tries_left = game.decrement_tries()
         if tries_left > 0:
             quick_reply = create_games_quick_reply()
@@ -188,7 +274,6 @@ def check_answer(user_id, answer, event):
                 )
             )
         else:
-            # انتهت المحاولات
             correct_answer = game.get_correct_answer()
             quick_reply = create_games_quick_reply()
             line_bot_api.reply_message(
@@ -198,7 +283,7 @@ def check_answer(user_id, answer, event):
                     quick_reply=quick_reply
                 )
             )
-            del active_games[user_id]
+            del storage[game_key]
         return False
 
 @app.route("/callback", methods=['POST'])
@@ -219,21 +304,13 @@ def handle_message(event):
     """معالج الرسائل النصية"""
     text = event.message.text.strip()
     user_id = get_user_id(event)
+    group_id = get_group_id(event)
     user_name = get_user_name(event)
     
-    # التحقق من تسجيل المستخدم
+    # تسجيل تلقائي للمستخدم
     user = get_user(user_id)
-    if not user and text not in ['انضم', 'ابدأ', 'مساعدة']:
-        quick_reply = create_games_quick_reply()
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(
-                text="مرحباً! 👋\n\nلبدء اللعب، اضغط على أحد الألعاب أدناه:",
-                quick_reply=quick_reply
-            )
-        )
+    if not user:
         add_user(user_id, user_name)
-        return
     
     # الأوامر الأساسية
     if text in ['انضم', 'ابدأ']:
@@ -242,10 +319,11 @@ def handle_message(event):
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(
-                text=f"مرحباً {user_name}! 🎮\n\nاختر لعبتك المفضلة من الأزرار:",
+                text=f"مرحباً {user_name}! 🎮\n\nاختر لعبتك المفضلة:",
                 quick_reply=quick_reply
             )
         )
+        return
     
     elif text == 'مساعدة':
         flex_message = create_help_flex()
@@ -257,6 +335,7 @@ def handle_message(event):
                 quick_reply=quick_reply
             )]
         )
+        return
     
     elif text == 'الصدارة':
         leaderboard = get_leaderboard(limit=5)
@@ -269,6 +348,7 @@ def handle_message(event):
                 quick_reply=quick_reply
             )]
         )
+        return
     
     elif text == 'نقاطي':
         user = get_user(user_id)
@@ -293,10 +373,14 @@ def handle_message(event):
                     quick_reply=quick_reply
                 )
             )
+        return
     
     elif text == 'إيقاف':
-        if user_id in active_games:
-            del active_games[user_id]
+        game_key = group_id if group_id else user_id
+        storage = group_games if group_id else active_games
+        
+        if game_key in storage:
+            del storage[game_key]
             quick_reply = create_games_quick_reply()
             line_bot_api.reply_message(
                 event.reply_token,
@@ -305,36 +389,19 @@ def handle_message(event):
                     quick_reply=quick_reply
                 )
             )
-        else:
-            quick_reply = create_games_quick_reply()
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(
-                    text="لا توجد لعبة نشطة حالياً.",
-                    quick_reply=quick_reply
-                )
-            )
+        return
     
     # بدء لعبة جديدة
     elif text in GAMES.keys():
-        if not user:
-            add_user(user_id, user_name)
-        start_game(text, user_id, event)
+        start_game(text, user_id, event, group_id)
+        return
     
     # التحقق من الإجابة
-    elif user_id in active_games:
-        check_answer(user_id, text, event)
+    game_key = group_id if group_id else user_id
+    storage = group_games if group_id else active_games
     
-    else:
-        # رسالة غير معروفة
-        quick_reply = create_games_quick_reply()
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(
-                text="اختر لعبة من الأزرار أدناه:",
-                quick_reply=quick_reply
-            )
-        )
+    if game_key in storage:
+        check_answer(user_id, text, event, group_id)
 
 @app.route("/")
 def home():
@@ -342,4 +409,4 @@ def home():
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port)
