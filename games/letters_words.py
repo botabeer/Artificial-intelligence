@@ -1,76 +1,93 @@
 import random
 
 class LettersWordsGame:
+    """لعبة استخراج كلمات - 5 حروف ثم تقل"""
     def __init__(self, gemini_helper):
         self.gemini_helper = gemini_helper
         self.letters = None
-        self.valid_words = []
-        self.tries_left = 3
+        self.current_letters = []
+        self.players_scores = {}  # {user_id: correct_words_count}
+        self.used_words = set()
+        self.tries_left = 99  # غير محدود تقريباً
+        self.rounds = 0
     
     def generate_question(self):
-        """توليد مجموعة حروف لتكوين كلمات"""
-        # توليد حروف عشوائية
-        arabic_letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'
-        self.letters = ''.join(random.sample(arabic_letters, 6))
+        """توليد 5 حروف عشوائية"""
+        arabic_letters = 'ابتجحدرسشصطعفقكلمنهوي'
+        self.letters = ''.join(random.sample(arabic_letters, 5))
+        self.current_letters = list(self.letters)
+        self.rounds = 0
         
-        # توليد كلمات محتملة باستخدام Gemini
-        if self.gemini_helper.enabled:
-            try:
-                prompt = f"""
-                من الحروف التالية: {self.letters}
-                أعطني 3 كلمات عربية صحيحة يمكن تكوينها.
-                
-                أرجع النتيجة كقائمة مفصولة بفواصل فقط، مثل: كلمة1,كلمة2,كلمة3
-                """
-                
-                import google.generativeai as genai
-                response = self.gemini_helper.model.generate_content(prompt)
-                words = response.text.strip().split(',')
-                self.valid_words = [w.strip() for w in words]
-            except:
-                self.valid_words = []
-        
-        return f"📝 كوّن كلمة من الحروف التالية:\n\n{self.letters}\n\n💡 لديك {self.tries_left} محاولات"
+        return f"📝 لعبة الكلمات!\n\nكوّن كلمات صحيحة من الحروف:\n\n{' - '.join(self.current_letters)}\n\n💡 اكتب كلمة واحدة في كل مرة\n⭐ +5 نقاط لكل كلمة صحيحة"
     
     def check_answer(self, user_answer):
-        """التحقق من الإجابة"""
-        user_answer = user_answer.strip()
+        """التحقق من الكلمة"""
+        word = user_answer.strip()
         
-        # التحقق من أن الكلمة تستخدم فقط الحروف المتاحة
-        user_letters = list(user_answer)
-        available_letters = list(self.letters)
+        # تحقق من عدم تكرار الكلمة
+        if word in self.used_words:
+            return False
         
-        for letter in user_letters:
-            if letter not in available_letters:
+        # تحقق من أن جميع حروف الكلمة متوفرة
+        available = self.current_letters.copy()
+        for letter in word:
+            if letter not in available:
                 return False
-            available_letters.remove(letter)
+            available.remove(letter)
         
-        # التحقق من صحة الكلمة باستخدام Gemini
+        # تحقق من صحة الكلمة باستخدام AI
         if self.gemini_helper.enabled:
             try:
-                prompt = f"""
-                هل "{user_answer}" كلمة عربية صحيحة؟
-                
-                أجب بـ "نعم" أو "لا" فقط.
-                """
-                
+                prompt = f'هل "{word}" كلمة عربية صحيحة؟ أجب بنعم أو لا فقط.'
                 import google.generativeai as genai
                 response = self.gemini_helper.model.generate_content(prompt)
                 result = response.text.strip().lower()
-                return 'نعم' in result or 'yes' in result
+                
+                if 'نعم' in result or 'yes' in result:
+                    self.used_words.add(word)
+                    return True
             except:
                 pass
         
-        # إذا كانت الكلمة في القائمة المولدة
-        return user_answer in self.valid_words
+        # قبول كلمات طويلة (احتياطي)
+        if len(word) >= 3:
+            self.used_words.add(word)
+            return True
+        
+        return False
+    
+    def has_more_rounds(self):
+        """هل هناك جولات أخرى؟"""
+        return len(self.current_letters) > 1
+    
+    def next_round(self):
+        """الجولة التالية - حذف حرف"""
+        if len(self.current_letters) > 1:
+            removed = self.current_letters.pop(random.randint(0, len(self.current_letters) - 1))
+            self.rounds += 1
+            self.used_words.clear()  # مسح الكلمات المستخدمة
+            
+            if len(self.current_letters) == 1:
+                return f"📝 الجولة الأخيرة!\n\nكوّن كلمات من الحرف الأخير:\n\n{self.current_letters[0]}\n\n💡 +5 نقاط لكل كلمة"
+            else:
+                return f"📝 جولة جديدة!\n\nالحروف المتبقية:\n\n{' - '.join(self.current_letters)}\n\n💡 كوّن كلمات جديدة!"
+        
+        return "انتهت اللعبة!"
+    
+    def get_winner_message(self):
+        """رسالة الفائز"""
+        if not self.players_scores:
+            return "لم يشارك أحد"
+        
+        max_score = max(self.players_scores.values())
+        winners = [uid for uid, score in self.players_scores.items() if score == max_score]
+        
+        return f"🎉 الفائز بـ {max_score} كلمة صحيحة!"
     
     def get_correct_answer(self):
-        """الحصول على إجابة صحيحة محتملة"""
-        if self.valid_words:
-            return self.valid_words[0]
-        return f"أي كلمة من الحروف: {self.letters}"
+        """رسالة الإجابة"""
+        return f"كلمة صحيحة! +5 نقاط"
     
     def decrement_tries(self):
-        """تقليل عدد المحاولات"""
-        self.tries_left -= 1
-        return self.tries_left
+        """لا محاولات محدودة في هذه اللعبة"""
+        return 1
