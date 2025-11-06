@@ -1,30 +1,55 @@
-import random
-
-class HumanAnimalPlant:
-    # قوائم كلمات لكل فئة
-    CATEGORIES = {
-        "إنسان": ["دكتور", "أحمد", "ريم", "معلم", "شرطي"],
-        "حيوان": ["دب", "ديك", "دجاجة", "ذئب", "دلفين"],
-        "نبات": ["داليا", "دفلى", "دوار الشمس", "دراق", "ديزي"],
-        "جماد": ["دفتر", "درج", "دلو", "دولاب", "قدر"],
-        "مدينة": ["دمشق", "دبي", "دير الزور", "دمنهور", "دجلة"]
-    }
-
-    def __init__(self, gemini_helper=None):
-        self.gemini = gemini_helper
-
+class HumanAnimalPlantGame:
+    def __init__(self, gemini_helper):
+        self.gemini_helper = gemini_helper
+        self.category = None
+        self.letter = None
+        self.correct_answer = None
+        self.tries_left = 3
+    
     def generate_question(self):
-        """توليد سؤال جديد: فئة وحرف"""
-        category = random.choice(list(self.CATEGORIES.keys()))
-        letter = random.choice("ابتثجحخدذرزسشصضطظعغفقكلمنهوي")
-        # اختر كلمة عشوائية من الفئة تبدأ بالحرف (إن وجدت)
-        words = [w for w in self.CATEGORIES[category] if w.startswith(letter)]
-        word = random.choice(words) if words else None
-        return {"category": category, "letter": letter, "word": word, "emoji": "🎮"}
-
-    def check_answer(self, data, user_input):
-        """التحقق من إجابة المستخدم"""
-        if self.gemini:
-            return self.gemini.check_word_validity(user_input, data['category'], data['letter'])
-        # تحقق بسيط إذا بدأت الكلمة بالحرف الصحيح
-        return user_input.strip().startswith(data['letter'])
+        """توليد سؤال إنسان/حيوان/نبات"""
+        data = self.gemini_helper.generate_human_animal_plant_question()
+        self.category = data['category']
+        self.letter = data['letter']
+        self.correct_answer = data['answer']
+        
+        return f"🎮 اكتب {self.category} يبدأ بحرف '{self.letter}'\n\n💡 لديك {self.tries_left} محاولات"
+    
+    def check_answer(self, user_answer):
+        """التحقق من الإجابة"""
+        user_answer = user_answer.strip()
+        
+        # التحقق من أن الكلمة تبدأ بالحرف الصحيح
+        if not user_answer.startswith(self.letter):
+            return False
+        
+        # مطابقة مباشرة
+        if user_answer == self.correct_answer:
+            return True
+        
+        # استخدام Gemini للتحقق من صحة الإجابة
+        if self.gemini_helper.enabled:
+            try:
+                prompt = f"""
+                هل "{user_answer}" هو {self.category} صحيح ويبدأ بحرف "{self.letter}"؟
+                
+                أجب بـ "نعم" أو "لا" فقط.
+                """
+                
+                import google.generativeai as genai
+                response = self.gemini_helper.model.generate_content(prompt)
+                result = response.text.strip().lower()
+                return 'نعم' in result or 'yes' in result
+            except:
+                pass
+        
+        return False
+    
+    def get_correct_answer(self):
+        """الحصول على الإجابة الصحيحة"""
+        return self.correct_answer
+    
+    def decrement_tries(self):
+        """تقليل عدد المحاولات"""
+        self.tries_left -= 1
+        return self.tries_left
