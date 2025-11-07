@@ -1,22 +1,42 @@
 import random
 
-class IQGame:
-    def __init__(self, user_id, group_id):
-        self.user_id = user_id
-        self.group_id = group_id
-        self.questions = [
-            {"q": "ما هي أطول سورة في القرآن؟", "a": "البقرة"},
-            {"q": "ما أول سورة نزلت في القرآن؟", "a": "العَلَق"},
-            {"q": "كم عدد ركعات صلاة الفجر؟", "a": "2"},
-            {"q": "من هو أول الخلفاء الراشدين؟", "a": "أبو بكر"}
-        ]
-        self.current = random.choice(self.questions)
+USE_AI = False
+AI_MODEL = None
 
-    def start(self):
-        return f"🧠 ذكاء:\n{self.current['q']}\n⏰ لديك 20 ثانية للإجابة"
+class IQGame:
+    def __init__(self, ai_model=None):
+        global USE_AI, AI_MODEL
+        if ai_model:
+            USE_AI = True
+            AI_MODEL = ai_model
+
+        self.questions = [
+            {"question": "ما هو مجموع 2 + 2؟", "answer": "4"},
+            {"question": "اكمل: سماء زرقاء، شمس ...؟", "answer": "مشرقة"},
+            {"question": "كم عدد أيام الأسبوع؟", "answer": "7"},
+            {"question": "ما هو لون الحليب؟", "answer": "أبيض"},
+            {"question": "ما هو أكبر كوكب في المجموعة الشمسية؟", "answer": "المشتري"},
+            {"question": "اكمل: الأرض تدور حول ...", "answer": "الشمس"},
+            {"question": "ما هو اسم النبي الذي بنى السفينة؟", "answer": "نوح"},
+            {"question": "كم عدد الصلوات في اليوم؟", "answer": "5"},
+            {"question": "ما هو أول شهر في السنة الهجرية؟", "answer": "محرم"},
+            {"question": "ما هو أطول سورة في القرآن؟", "answer": "البقرة"}
+        ]
+        self.current_question = None
+        self.tries = 3
+
+    def generate_question(self):
+        if USE_AI and AI_MODEL:
+            try:
+                response = AI_MODEL.generate_text("اعطني سؤال ذكاء ديني قصير")
+                self.current_question = {"question": response.text.strip(), "answer": "الجواب"}
+                return self.current_question['question']
+            except Exception:
+                pass
+        self.current_question = random.choice(self.questions)
+        return self.current_question['question']
 
     def check_answer(self, answer):
-        if answer.strip() == self.current['a']:
-            return f"✅ صحيح! +15 نقطة"
-        else:
-            return f"❌ خطأ! الإجابة الصحيحة: {self.current['a']}"
+        correct = self.current_question and answer.strip() == self.current_question['answer']
+        message = "إجابة صحيحة!" if correct else f"إجابة خاطئة! الإجابة الصحيحة: {self.current_question['answer']}"
+        return {"correct": correct, "message": message, "points": 10}
