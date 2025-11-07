@@ -1,27 +1,33 @@
-import random
-
-USE_AI = False
-AI_MODEL = None
-
 class ChainWordsGame:
-    def __init__(self, ai_model=None):
-        global USE_AI, AI_MODEL
-        if ai_model:
-            USE_AI = True
-            AI_MODEL = ai_model
+    def __init__(self, user_id, group_id):
+        self.user_id = user_id
+        self.group_id = group_id
+        self.current = "كتاب"
+        self.score = 0
+        self.max_words = 10
+        self.words_count = 0
 
-        self.words = ["تفاحة", "هاتف", "قلم", "ماء", "سماء", "كتاب", "طاولة", "كرسي", "قمر", "شجرة"]
-        self.used_words = set()
-        self.current_question = None
-        self.tries = 3
+    def start(self):
+        last_char = self.normalize_char(self.current[-1])
+        return f"🔗 الكلمة: {self.current}\nالحرف التالي: {last_char}"
 
-    def generate_question(self):
-        word = random.choice([w for w in self.words if w not in self.used_words])
-        self.used_words.add(word)
-        self.current_question = {"question": f"ابدأ بكلمة تبدأ بحرف آخر كلمة: {word[-1]}", "answer": "أي كلمة مناسبة"}
-        return self.current_question['question']
+    def normalize_char(self, c):
+        if c == 'ة':
+            return 'ت'
+        elif c == 'ء':
+            return 'أ'
+        return c
 
-    def check_answer(self, answer):
-        correct = True  # أي إجابة مقبولة في النسخة البسيطة
-        message = f"إجابة مقبولة: {answer}" if correct else "إجابة خاطئة"
-        return {"correct": correct, "message": message, "points": 10}
+    def check_answer(self, user_answer):
+        if self.words_count >= self.max_words:
+            return f"✅ انتهت اللعبة! تم إدخال 10 كلمات. مجموع نقاطك: {self.score}"
+        expected = self.normalize_char(self.current[-1])
+        if user_answer[0] == expected:
+            self.current = user_answer
+            self.score += 10
+            self.words_count += 1
+            last_char = self.normalize_char(self.current[-1])
+            if self.words_count >= self.max_words:
+                return f"✅ انتهت اللعبة! تم إدخال 10 كلمات. مجموع نقاطك: {self.score}"
+            return f"✅ صحيح! +10 نقاط\nالحرف التالي: {last_char}"
+        return f"❌ خاطئ! حاول مرة أخرى."
