@@ -55,7 +55,7 @@ user_states = {}
 # تهيئة قاعدة البيانات
 init_db()
 
-# قائمة الألعاب
+# ترتيب الألعاب حسب التفضيل من الأعلى للأدنى
 GAMES = {
     'ذكاء': '🧠',
     'كلمة ولون': '🎨',
@@ -140,21 +140,20 @@ def check_answer(user_id, answer, event, group_id=None):
         add_user(user_id, user_name)
         update_user_score(user_id, new_score)
 
+        # الرسائل الخاصة لكل لعبة
         if game_type in ['توافق', 'إنسان']:
             result_text = game.get_correct_answer()
             quick_reply = create_games_quick_reply()
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=result_text, quick_reply=quick_reply)
-            )
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=result_text, quick_reply=quick_reply))
         else:
             flex_message = create_win_message_flex(points_earned=points, correct_answer=game.get_correct_answer(), total_points=new_score)
             quick_reply = create_games_quick_reply()
             line_bot_api.reply_message(
                 event.reply_token,
-                [flex_message, TextSendMessage(text=" ممتاز! إجابة صحيحة!\n\nاختر لعبة أخرى:", quick_reply=quick_reply)]
+                [flex_message, TextSendMessage(text="🎉 ممتاز! إجابة صحيحة!\nاختر لعبة أخرى:", quick_reply=quick_reply)]
             )
 
+        # حذف اللعبة إذا انتهت
         if not getattr(game, "has_more_rounds", lambda: False)() or game_type not in ['تكوين كلمات']:
             del storage[game_key]
         return True
