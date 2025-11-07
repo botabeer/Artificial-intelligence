@@ -2,7 +2,7 @@
 import random
 import time
 
-# ---- لعبة كلمة ولون ----
+# ---------------- لعبة كلمة ولون ----------------
 COLORS = {
     "أحمر": ["تفاح","طماطم","خروف"],
     "أزرق": ["سماء","ماء","بحر"],
@@ -26,7 +26,8 @@ class WordColorGame:
             return {"correct": True, "message": f"✅ صحيح! +15 نقاط", "points": 15}
         return {"correct": False, "message": "❌ خطأ! حاول مرة أخرى."}
 
-# ---- لعبة سلسلة كلمات ----
+
+# ---------------- لعبة سلسلة كلمات ----------------
 class ChainWordsGame:
     def __init__(self, user_id=None, group_id=None, ai_helper=None):
         self.current = "كتاب"
@@ -51,18 +52,20 @@ class ChainWordsGame:
             self.current = answer
             self.score += 10
             self.word_count += 1
+            finished = False
             if self.word_count >= self.max_words:
-                return {"correct": True, "message": f"✅ صحيح! +10 نقاط\n🎉 تم الوصول لأقصى عدد كلمات!", "points": 10, "finished": True}
-            return {"correct": True, "message": f"✅ صحيح! +10 نقاط", "points": 10}
+                finished = True
+            return {"correct": True, "message": f"✅ صحيح! +10 نقاط", "points": 10, "finished": finished}
         return {"correct": False, "message": f"❌ خاطئ! حاول مرة أخرى."}
 
-# ---- لعبة أسرع كتابة ----
-WORDS = ["تفاحة","سيارة","قلم","هاتف","مكتبة","شمس","قمر"]
+
+# ---------------- لعبة أسرع كتابة ----------------
+FAST_WORDS = ["تفاحة","سيارة","قلم","هاتف","مكتبة","شمس","قمر"]
 
 class FastTypingGame:
     def __init__(self, user_id=None, group_id=None, ai_helper=None):
         self.group_id = group_id
-        self.word = random.choice(WORDS)
+        self.word = random.choice(FAST_WORDS)
         self.start_time = None
         self.finished = False
         self.winner = None
@@ -90,8 +93,9 @@ class FastTypingGame:
             return {"correct": True, "message": f"✅ {user_id} هو الفائز! +{points} نقاط ⏱️ {elapsed:.2f} ثانية", "points": points}
         return {"correct": False, "message": f"❌ {user_id} خطأ! حاول مرة أخرى."}
 
-# ---- لعبة خمن ----
-QUESTIONS = [
+
+# ---------------- لعبة خمن ----------------
+GUESS_QUESTIONS = [
     ("شيء بالمطبخ يبدأ بحرف القاف", "ق", "قدر"),
     ("شيء بغرفة النوم بحرف السين", "س", "سرير"),
     ("شيء بالمدرسة بحرف الميم", "م", "مسطرة"),
@@ -105,11 +109,12 @@ class GuessGame:
         self.group_id = group_id
         self.current_question = None
         self.answer = None
+        self.first_letter = None
         self.score = 0
         self.ai_helper = ai_helper
 
     def start(self):
-        self.current_question, self.first_letter, self.answer = random.choice(QUESTIONS)
+        self.current_question, self.first_letter, self.answer = random.choice(GUESS_QUESTIONS)
         return f"🕵️‍♂️ {self.current_question}\nابدأ بالحرف: {self.first_letter}"
 
     def check_answer(self, user_answer):
@@ -121,7 +126,63 @@ class GuessGame:
             return {"correct": True, "message": "✅ صحيح! +10 نقاط", "points": 10}
         return {"correct": False, "message": f"❌ خطأ! الإجابة الصحيحة كانت: {self.answer}"}
 
-# ---- لعبة توافق أسماء ----
+
+# ---------------- لعبة تكوين كلمات ----------------
+LETTERS = ["م","ك","ح","ت","ف","ل"]
+WORD_POOL = ["حلم","حمل","فتح","مفتح","حكم","تفاح","كتب","قلم"]
+
+class LettersWordsGame:
+    def __init__(self, user_id=None, group_id=None, ai_helper=None):
+        self.letters = LETTERS.copy()
+        self.remaining_letters = self.letters.copy()
+        self.valid_words = [w for w in WORD_POOL if all(c in self.letters for c in w)]
+        self.found = []
+        self.score = 0
+        self.ai_helper = ai_helper
+
+    def start(self):
+        return f"📝 الكلمات من الحروف: {' - '.join(self.letters)}"
+
+    def check_answer(self, answer):
+        for c in answer:
+            if c not in self.remaining_letters:
+                return {"correct": False, "message": "❌ حرف غير موجود!"}
+        if answer in self.valid_words and answer not in self.found:
+            self.found.append(answer)
+            for c in answer:
+                if c in self.remaining_letters:
+                    self.remaining_letters.remove(c)
+            self.score += 5
+            finished = len(self.remaining_letters) <= 1
+            return {"correct": True, "message": "✅ صحيح! +5 نقاط", "points": 5, "finished": finished}
+        return {"correct": False, "message": "❌ كلمة غير صحيحة أو تم كتابتها مسبقاً!"}
+
+
+# ---------------- لعبة إنسان وحيوان ونبات ----------------
+CATEGORIES = {
+    "إنسان": ["أحمد","ليلى","علي"],
+    "حيوان": ["قط","كلب","أسد"],
+    "نبات": ["شجرة","زهرة","نعناع"],
+    "جماد": ["كرسي","قلم","هاتف"],
+    "بلد": ["مصر","السعودية","فرنسا"]
+}
+
+class HumanAnimalPlantGame:
+    def __init__(self, user_id=None, group_id=None, ai_helper=None):
+        self.category = random.choice(list(CATEGORIES.keys()))
+        self.valid_words = CATEGORIES[self.category]
+        self.ai_helper = ai_helper
+
+    def start(self):
+        return f"🎮 اختر شيئًا من فئة: {self.category}"
+
+    def check_answer(self, answer):
+        if answer in self.valid_words:
+            return {"correct": True, "message": f"✅ {answer} من فئة {self.category}! +15 نقاط", "points": 15}
+        return {"correct": False, "message": "❌ خاطئ! حاول مرة أخرى."}
+
+
+# ---------------- لعبة توافق أسماء ----------------
 class CompatibilityGame:
     def __init__(self, name1=None, name2=None, ai_helper=None):
         self.name1 = name1 or "أحمد"
