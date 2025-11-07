@@ -40,8 +40,11 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
-# إعداد Gemini AI
-gemini_helper = GeminiHelper(os.getenv('GEMINI_API_KEY'))
+# إعداد Gemini AI مع نموذج "gemini-2.0-flash-exp"
+import google.generativeai as genai
+genai.api_key = os.getenv('GEMINI_API_KEY')
+model = genai.GenerativeModel("gemini-2.0-flash-exp")
+gemini_helper = GeminiHelper(model)
 
 # إعداد Logging
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +67,7 @@ GAMES = {
     'ترتيب': '🧩',              
     'كلمات': '📝',              
     'أسرع': '⚡',               
-    'لعبة': '🎮',               # HumanAnimalPlantGame
+    'لعبة': '🎮',               
     'خمن': '🕵️‍♂',              
     'توافق': '💞'               
 }
