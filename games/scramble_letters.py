@@ -1,18 +1,26 @@
 import random
 
-class ScrambleWordGame:
-    def __init__(self, user_id, group_id):
-        self.user_id = user_id
-        self.group_id = group_id
-        self.words = ["تفاحة", "كمثرى", "موز"]
-        self.word = random.choice(self.words)
-        self.scrambled = ''.join(random.sample(self.word, len(self.word)))
+USE_AI = False
+AI_MODEL = None
 
-    def start(self):
-        return f"🧩 رتب الحروف لتكوين كلمة: {self.scrambled}"
+class ScrambleWordGame:
+    def __init__(self, ai_model=None):
+        global USE_AI, AI_MODEL
+        if ai_model:
+            USE_AI = True
+            AI_MODEL = ai_model
+
+        self.words = ["تفاح", "كتاب", "قلم", "شجرة", "ماء", "سماء", "قمر", "هاتف", "سيارة", "زهرة"]
+        self.current_question = None
+        self.tries = 3
+
+    def generate_question(self):
+        word = random.choice(self.words)
+        scrambled = ''.join(random.sample(word, len(word)))
+        self.current_question = {"question": f"رتب الحروف لتصبح كلمة صحيحة: {scrambled}", "answer": word}
+        return self.current_question['question']
 
     def check_answer(self, answer):
-        if answer == self.word:
-            return f"✅ صحيح! +12 نقاط"
-        else:
-            return f"❌ خطأ!"
+        correct = self.current_question and answer.strip() == self.current_question['answer']
+        message = "✅ صحيح!" if correct else f"❌ خاطئ، الإجابة: {self.current_question['answer']}"
+        return {"correct": correct, "message": message, "points": 10}
