@@ -1,22 +1,29 @@
-class HumanAnimalPlantGame:
-    def __init__(self, user_id, group_id):
-        self.user_id = user_id
-        self.group_id = group_id
-        self.categories = {
-            "إنسان":["محمد","فاطمة"],
-            "حيوان":["أسد","قطة"],
-            "نبات":["شجرة","وردة"],
-            "جماد":["كرسي","طاولة"],
-            "بلد":["مصر","سعودية"]
-        }
+import random
 
-    def start(self):
-        import random
-        self.category = random.choice(list(self.categories.keys()))
-        return f"🎮 اختر شيئًا من فئة: {self.category}"
+USE_AI = False
+AI_MODEL = None
+
+class HumanAnimalPlantGame:
+    def __init__(self, ai_model=None):
+        global USE_AI, AI_MODEL
+        if ai_model:
+            USE_AI = True
+            AI_MODEL = ai_model
+
+        self.categories = {
+            "إنسان": ["أحمد", "ليلى", "سارة", "علي", "مريم", "خالد", "فاطمة", "يوسف", "هالة", "زينب"],
+            "حيوان": ["أسد", "قطة", "كلب", "فيل", "نمر", "حصان", "دجاجة", "سمكة", "دب", "غزال"],
+            "نبات": ["شجرة", "زهرة", "وردة", "نخلة", "شجيرة", "صبار", "عشب", "خيار", "طماطم", "فلفل"]
+        }
+        self.current_question = None
+        self.tries = 3
+
+    def generate_question(self):
+        category = random.choice(list(self.categories.keys()))
+        self.current_question = {"question": fاذكر شيئاً من فئة {category}", "answer": "أي إجابة مناسبة", "category": category}
+        return self.current_question['question']
 
     def check_answer(self, answer):
-        if answer in self.categories[self.category]:
-            return f"✅ {answer} من فئة {self.category}! +15 نقاط"
-        else:
-            return f"❌ خطأ!"
+        correct = True
+        message = f"✅ صحيح ضمن فئة {self.current_question['category']}" if correct else "❌ خاطئ"
+        return {"correct": correct, "message": message, "points": 10}
