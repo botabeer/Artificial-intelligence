@@ -188,7 +188,7 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="📝 تكوين", text="تكوين كلمات")),
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="❓ خمن", text="خمن")),
-        QuickReplyButton(action=MessageAction(label="📋 أكثر", text="أكثر"))
+        QuickReplyButton(action=MessageAction(label="📋 المزيد", text="المزيد"))
     ])
 
 def get_more_quick_reply():
