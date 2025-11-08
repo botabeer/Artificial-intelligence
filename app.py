@@ -150,9 +150,9 @@ def cleanup_old_games():
 cleanup_thread = threading.Thread(target=cleanup_old_games, daemon=True)
 cleanup_thread.start()
 
-# قائمة الألعاب Quick Reply الثابتة
-def get_main_quick_reply():
-    """الأزرار الثابتة التي تظهر دائماً"""
+# الأزرار الثابتة - تظهر دائماً
+def get_quick_reply():
+    """الأزرار الثابتة لجميع الرسائل"""
     return QuickReply(items=[
         QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
         QuickReplyButton(action=MessageAction(label="🎨 لون", text="كلمة ولون")),
@@ -165,20 +165,21 @@ def get_main_quick_reply():
         QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
         QuickReplyButton(action=MessageAction(label="🧠 ذاكرة", text="ذاكرة")),
         QuickReplyButton(action=MessageAction(label="🤔 لغز", text="لغز")),
-        QuickReplyButton(action=MessageAction(label="📊 المزيد", text="المزيد"))
+        QuickReplyButton(action=MessageAction(label="📋 المزيد", text="المزيد"))
     ])
 
 def get_more_quick_reply():
-    """أزرار إضافية"""
+    """أزرار المزيد"""
     return QuickReply(items=[
-        QuickReplyButton(action=MessageAction(label="🔄 عكس", text="عكس")),
+        QuickReplyButton(action=MessageAction(label="🔄 ضد", text="ضد")),
         QuickReplyButton(action=MessageAction(label="😀 إيموجي", text="إيموجي")),
         QuickReplyButton(action=MessageAction(label="💖 توافق", text="توافق")),
         QuickReplyButton(action=MessageAction(label="📊 نقاطي", text="نقاطي")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
+        QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
         QuickReplyButton(action=MessageAction(label="👥 انضم", text="انضم")),
         QuickReplyButton(action=MessageAction(label="🛑 إيقاف", text="إيقاف")),
-        QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="قائمة"))
+        QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="البداية"))
     ])
 
 # رسالة المساعدة - تصميم احترافي
@@ -401,8 +402,8 @@ def handle_message(event):
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(
-                text="🎮 اختر لعبة من القائمة\n\n💡 اكتب 'انضم' بعد بدء اللعبة للمشاركة",
-                quick_reply=get_main_quick_reply()
+                text="🎮 اختر لعبة\n\n💡 اضغط على اللعبة للبدء",
+                quick_reply=get_quick_reply()
             )
         )
         return
@@ -411,7 +412,7 @@ def handle_message(event):
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(
-                text="📋 المزيد من الخيارات",
+                text="📋 خيارات إضافية",
                 quick_reply=get_more_quick_reply()
             )
         )
@@ -420,7 +421,29 @@ def handle_message(event):
     elif text == 'مساعدة':
         line_bot_api.reply_message(
             event.reply_token,
+            FlexSendMessage(
+                alt_text="مساعدة",
+                contents=get_help_message(),
+                quick_reply=get_quick_reply()
+            )
+        )
+        return
+    
+    elif text == 'مساعدة':
+        line_bot_api.reply_message(
+            event.reply_token,
             FlexSendMessage(alt_text="مساعدة", contents=get_help_message())
+        )
+        return
+    
+    elif text == 'مساعدة':
+        line_bot_api.reply_message(
+            event.reply_token,
+            FlexSendMessage(
+                alt_text="مساعدة",
+                contents=get_help_message(),
+                quick_reply=get_quick_reply()
+            )
         )
         return
     
@@ -433,7 +456,7 @@ def handle_message(event):
         
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=msg, quick_reply=get_main_quick_reply())
+            TextSendMessage(text=msg, quick_reply=get_quick_reply())
         )
         return
     
@@ -449,7 +472,7 @@ def handle_message(event):
         
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=msg, quick_reply=get_main_quick_reply())
+            TextSendMessage(text=msg, quick_reply=get_quick_reply())
         )
         return
     
@@ -458,12 +481,12 @@ def handle_message(event):
             del active_games[game_id]
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="✅ تم إيقاف اللعبة", quick_reply=get_main_quick_reply())
+                TextSendMessage(text="✅ تم إيقاف اللعبة", quick_reply=get_quick_reply())
             )
         else:
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="❌ لا توجد لعبة نشطة", quick_reply=get_main_quick_reply())
+                TextSendMessage(text="❌ لا توجد لعبة نشطة", quick_reply=get_quick_reply())
             )
         return
     
@@ -477,18 +500,24 @@ def handle_message(event):
             if user_id in game_data['participants']:
                 line_bot_api.reply_message(
                     event.reply_token,
-                    TextSendMessage(text=f"✅ أنت مسجل بالفعل يا {display_name}")
+                    TextSendMessage(
+                        text=f"✅ أنت مسجل بالفعل يا {display_name}",
+                        quick_reply=get_quick_reply()
+                    )
                 )
             else:
                 game_data['participants'].add(user_id)
                 line_bot_api.reply_message(
                     event.reply_token,
-                    TextSendMessage(text=f"✅ انضم {display_name} للعبة\n👥 عدد اللاعبين: {len(game_data['participants'])}")
+                    TextSendMessage(
+                        text=f"✅ انضم {display_name} للعبة\n👥 عدد اللاعبين: {len(game_data['participants'])}",
+                        quick_reply=get_quick_reply()
+                    )
                 )
         else:
             line_bot_api.reply_message(
                 event.reply_token,
-                TextSendMessage(text="❌ لا توجد لعبة نشطة\n\n🎮 ابدأ لعبة أولاً", quick_reply=get_main_quick_reply())
+                TextSendMessage(text="❌ لا توجد لعبة نشطة\n\n🎮 ابدأ لعبة أولاً", quick_reply=get_quick_reply())
             )
         return
     
@@ -599,7 +628,7 @@ def handle_message(event):
         }
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="💖 لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
+            TextSendMessage(text=" لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
         )
         return
     
@@ -639,7 +668,7 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, response)
         return
     
-    elif text == 'عكس':
+    elif text == 'ضد':
         game = OppositeGame(line_bot_api)
         active_games[game_id] = {
             'game': game,
@@ -685,10 +714,13 @@ def handle_message(event):
                 del active_games[game_id]
                 response = TextSendMessage(
                     text=result.get('message', 'انتهت اللعبة'),
-                    quick_reply=get_main_quick_reply()
+                    quick_reply=get_quick_reply()
                 )
             else:
                 response = result.get('response', TextSendMessage(text=result.get('message', '')))
+                # إضافة الأزرار للرسائل أثناء اللعبة أيضاً
+                if hasattr(response, 'quick_reply') and response.quick_reply is None:
+                    response.quick_reply = get_quick_reply()
             
             line_bot_api.reply_message(event.reply_token, response)
         return
