@@ -11,6 +11,7 @@ class WordColorGame:
         self.get_api_key = get_api_key
         self.switch_key = switch_key
         self.current_color = None
+        self.current_category = None
         self.start_time = None
         self.model = None
         
@@ -25,18 +26,36 @@ class WordColorGame:
                 print(f"AI initialization error: {e}")
                 self.use_ai = False
         
-        # قائمة الألوان والأمثلة
-        self.colors = {
-            "أحمر": ["تفاحة", "تفاح", "طماطم", "فراولة", "كرز", "دم", "وردة", "فلفل"],
-            "أخضر": ["عشب", "نعناع", "خس", "خيار", "زيتون", "شجرة", "ملوخية", "فلفل"],
-            "أزرق": ["سماء", "بحر", "ماء", "حوت", "طائر", "نهر"],
-            "أصفر": ["شمس", "موز", "ليمون", "ذهب", "كناري", "ليمونة"],
-            "برتقالي": ["برتقال", "جزر", "يقطين", "مانجو", "برتقالة"],
-            "أبيض": ["حليب", "سكر", "ملح", "قطن", "ثلج", "لبن", "رز", "أرز"],
-            "أسود": ["ليل", "فحم", "غراب", "بترول", "نفط"],
-            "وردي": ["فلامنجو", "علكة", "خوخ", "زهرة"],
-            "بني": ["خشب", "تراب", "قهوة", "شوكولاتة", "شوكولاته"],
-            "بنفسجي": ["باذنجان", "عنب", "بنفسج", "أرجوان"]
+        # قائمة الفئات والألوان
+        self.categories_colors = {
+            "فاكهة": {
+                "أحمر": ["تفاح", "تفاحة", "فراولة", "كرز", "رمان"],
+                "أخضر": ["عنب", "تفاح", "كيوي"],
+                "أصفر": ["موز", "ليمون", "مانجو", "أناناس"],
+                "برتقالي": ["برتقال", "برتقالة", "مانجو", "خوخ"],
+                "بنفسجي": ["عنب", "توت"]
+            },
+            "خضار": {
+                "أحمر": ["طماطم", "فلفل", "بنجر", "شمندر"],
+                "أخضر": ["خيار", "خس", "ملوخية", "فلفل", "بقدونس"],
+                "أصفر": ["فلفل", "ذرة"],
+                "برتقالي": ["جزر", "يقطين", "قرع"],
+                "أبيض": ["بصل", "ثوم", "قرنبيط"]
+            },
+            "حيوان": {
+                "أسود": ["غراب", "قط", "كلب"],
+                "أبيض": ["قط", "أرنب", "حمامة", "بجعة"],
+                "بني": ["جمل", "كلب", "دب"],
+                "أصفر": ["كناري", "عصفور"],
+                "رمادي": ["فيل", "ذئب", "حمار"]
+            },
+            "طيور": {
+                "أسود": ["غراب", "نسر"],
+                "أبيض": ["حمامة", "بجعة"],
+                "أحمر": ["فلامنجو"],
+                "أصفر": ["كناري", "عصفور"],
+                "أزرق": ["طاووس", "ببغاء"]
+            }
         }
     
     def normalize_text(self, text):
@@ -50,13 +69,17 @@ class WordColorGame:
         return text
     
     def start_game(self):
-        self.current_color = random.choice(list(self.colors.keys()))
+        self.current_category = random.choice(list(self.categories_colors.keys()))
+        available_colors = list(self.categories_colors[self.current_category].keys())
+        self.current_color = random.choice(available_colors)
         self.start_time = datetime.now()
         
-        return TextSendMessage(text=f"🎨 اكتب شيء لونه {self.current_color}!\n\n⏱️ لديك وقت محدود")
+        return TextSendMessage(
+            text=f"🎨 اذكر {self.current_category} لونها {self.current_color}\n\n⏱️ لديك وقت محدود"
+        )
     
     def check_answer(self, answer, user_id, display_name):
-        if not self.current_color:
+        if not self.current_color or not self.current_category:
             return None
         
         elapsed = (datetime.now() - self.start_time).total_seconds()
@@ -66,7 +89,7 @@ class WordColorGame:
         is_correct = False
         if self.use_ai and self.model:
             try:
-                prompt = f"هل '{answer}' لونه {self.current_color}؟ أجب بنعم أو لا فقط"
+                prompt = f"هل '{answer}' من فئة {self.current_category} ولونها {self.current_color}؟ أجب بنعم أو لا فقط"
                 response = self.model.generate_content(prompt)
                 ai_result = response.text.strip().lower()
                 
@@ -79,7 +102,7 @@ class WordColorGame:
         
         # التحقق التقليدي كاحتياطي
         if not is_correct:
-            valid_answers = [self.normalize_text(item) for item in self.colors[self.current_color]]
+            valid_answers = [self.normalize_text(item) for item in self.categories_colors[self.current_category][self.current_color]]
             if user_answer in valid_answers:
                 is_correct = True
         
@@ -93,6 +116,7 @@ class WordColorGame:
             
             msg = f"✅ صحيح يا {display_name}!\n⚡ {speed} ({elapsed:.1f}ث)\n⭐ +{points} نقطة"
             self.current_color = None
+            self.current_category = None
             
             return {
                 'message': msg,
@@ -102,7 +126,8 @@ class WordColorGame:
                 'response': TextSendMessage(text=msg)
             }
         else:
-            msg = f"❌ خطأ! {answer} ليس {self.current_color}\nأمثلة صحيحة: {', '.join(self.colors[self.current_color][:3])}"
+            examples = ', '.join(self.categories_colors[self.current_category][self.current_color][:3])
+            msg = f"❌ خطأ! أمثلة صحيحة:\n{examples}"
             return {
                 'message': msg,
                 'points': 0,
