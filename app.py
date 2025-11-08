@@ -29,6 +29,7 @@ from games.memory_game import MemoryGame
 from games.riddle_game import RiddleGame
 from games.opposite_game import OppositeGame
 from games.emoji_game import EmojiGame
+from games.song_game import SongGame
 
 app = Flask(__name__)
 
@@ -179,26 +180,26 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="⚡ أسرع", text="أسرع")),
         QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
         QuickReplyButton(action=MessageAction(label="🎨 لون", text="كلمة ولون")),
+        QuickReplyButton(action=MessageAction(label="🎵 أغنية", text="أغنية")),
         QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
         QuickReplyButton(action=MessageAction(label="🧩 ترتيب", text="ترتيب الحروف")),
         QuickReplyButton(action=MessageAction(label="📝 تكوين", text="تكوين كلمات")),
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="❓ خمن", text="خمن")),
         QuickReplyButton(action=MessageAction(label="🔄 ضد", text="ضد")),
-        QuickReplyButton(action=MessageAction(label="🧠 ذاكرة", text="ذاكرة")),
-        QuickReplyButton(action=MessageAction(label="🤔 لغز", text="لغز")),
-        QuickReplyButton(action=MessageAction(label="📋 المزيد", text="المزيد"))
+        QuickReplyButton(action=MessageAction(label="📋 أكثر", text="أكثر"))
     ])
 
 def get_more_quick_reply():
-    """أزرار المزيد"""
+    """أزرار أكثر"""
     return QuickReply(items=[
+        QuickReplyButton(action=MessageAction(label="🧠 ذاكرة", text="ذاكرة")),
+        QuickReplyButton(action=MessageAction(label="🤔 لغز", text="لغز")),
         QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
         QuickReplyButton(action=MessageAction(label="😀 إيموجي", text="إيموجي")),
         QuickReplyButton(action=MessageAction(label="💖 توافق", text="توافق")),
         QuickReplyButton(action=MessageAction(label="📊 نقاطي", text="نقاطي")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
-        QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
         QuickReplyButton(action=MessageAction(label="🛑 إيقاف", text="إيقاف")),
         QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="البداية"))
     ])
@@ -411,25 +412,105 @@ def handle_message(event):
     # الحصول على معلومات المستخدم
     try:
         profile = line_bot_api.get_profile(user_id)
-        display_name = profile.display_name
+        display_name = profile.display_name if profile.display_name else text
     except:
-        display_name = "مستخدم"
+        display_name = text
     
     # معرف اللعبة
     game_id = event.source.group_id if hasattr(event.source, 'group_id') else user_id
     
     # الأوامر الأساسية
     if text in ['البداية', 'ابدأ', 'start', 'قائمة']:
+        flex_message = {
+            "type": "bubble",
+            "size": "mega",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "🎮",
+                        "size": "xxl",
+                        "align": "center",
+                        "color": "#1a1a1a"
+                    },
+                    {
+                        "type": "text",
+                        "text": "مرحباً بك في البوت",
+                        "weight": "bold",
+                        "size": "xl",
+                        "align": "center",
+                        "color": "#2c2c2c",
+                        "margin": "md"
+                    },
+                    {
+                        "type": "separator",
+                        "margin": "lg",
+                        "color": "#e0e0e0"
+                    },
+                    {
+                        "type": "text",
+                        "text": "للبدء:",
+                        "weight": "bold",
+                        "size": "md",
+                        "color": "#4a4a4a",
+                        "margin": "lg"
+                    },
+                    {
+                        "type": "text",
+                        "text": "1️⃣ اضغط على 👥 انضم للتسجيل",
+                        "size": "sm",
+                        "color": "#6c6c6c",
+                        "margin": "md",
+                        "wrap": True
+                    },
+                    {
+                        "type": "text",
+                        "text": "2️⃣ اختر لعبة من الأزرار",
+                        "size": "sm",
+                        "color": "#6c6c6c",
+                        "margin": "sm",
+                        "wrap": True
+                    },
+                    {
+                        "type": "text",
+                        "text": "3️⃣ ابدأ اللعب واجمع النقاط",
+                        "size": "sm",
+                        "color": "#6c6c6c",
+                        "margin": "sm",
+                        "wrap": True
+                    },
+                    {
+                        "type": "separator",
+                        "margin": "lg",
+                        "color": "#e0e0e0"
+                    },
+                    {
+                        "type": "text",
+                        "text": "💡 بعد الانضمام، يمكنك اللعب في جميع الألعاب النشطة",
+                        "size": "xs",
+                        "color": "#8c8c8c",
+                        "margin": "md",
+                        "wrap": True
+                    }
+                ],
+                "backgroundColor": "#ffffff",
+                "paddingAll": "24px"
+            }
+        }
+        
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(
-                text="🎮 اختر لعبة\n\n💡 اضغط على اللعبة للبدء",
+            FlexSendMessage(
+                alt_text="مرحباً بك",
+                contents=flex_message,
                 quick_reply=get_quick_reply()
             )
         )
         return
     
-    elif text == 'المزيد':
+    elif text in ['أكثر', 'المزيد']:
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(
@@ -649,7 +730,7 @@ def handle_message(event):
         }
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=" لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
+            TextSendMessage(text="💖 لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
         )
         return
     
@@ -706,6 +787,18 @@ def handle_message(event):
         active_games[game_id] = {
             'game': game,
             'type': 'إيموجي',
+            'created_at': datetime.now(),
+            'participants': {user_id}
+        }
+        response = game.start_game()
+        line_bot_api.reply_message(event.reply_token, response)
+        return
+    
+    elif text == 'أغنية':
+        game = SongGame(line_bot_api)
+        active_games[game_id] = {
+            'game': game,
+            'type': 'أغنية',
             'created_at': datetime.now(),
             'participants': {user_id}
         }
