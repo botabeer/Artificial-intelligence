@@ -49,15 +49,11 @@ user_message_count = defaultdict(lambda: {'count': 0, 'reset_time': datetime.now
 
 # دالة تطبيع النص (إزالة الـ التعريف، همزات، إلخ)
 def normalize_text(text):
-    """تطبيع النص للمقارنة"""
     text = text.strip().lower()
-    # إزالة ال التعريف
     text = re.sub(r'^ال', '', text)
-    # توحيد الهمزات
     text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
     text = text.replace('ة', 'ه')
     text = text.replace('ى', 'ي')
-    # إزالة التشكيل
     text = re.sub(r'[\u064B-\u065F]', '', text)
     return text
 
@@ -135,7 +131,7 @@ def check_rate_limit(user_id):
 # تنظيف الألعاب القديمة
 def cleanup_old_games():
     while True:
-        time.sleep(300)  # كل 5 دقائق
+        time.sleep(300)
         now = datetime.now()
         to_delete = []
         
@@ -146,13 +142,11 @@ def cleanup_old_games():
         for game_id in to_delete:
             del active_games[game_id]
 
-# بدء thread التنظيف
 cleanup_thread = threading.Thread(target=cleanup_old_games, daemon=True)
 cleanup_thread.start()
 
 # الأزرار الثابتة - تظهر دائماً
 def get_quick_reply():
-    """الأزرار الثابتة لجميع الرسائل (مرتبة حسب التفضيل)"""
     return QuickReply(items=[
         QuickReplyButton(action=MessageAction(label="👥 انضم", text="انضم")),
         QuickReplyButton(action=MessageAction(label="⚡ أسرع", text="أسرع")),
@@ -170,7 +164,6 @@ def get_quick_reply():
     ])
 
 def get_more_quick_reply():
-    """أزرار المزيد"""
     return QuickReply(items=[
         QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
         QuickReplyButton(action=MessageAction(label="😀 إيموجي", text="إيموجي")),
@@ -182,196 +175,25 @@ def get_more_quick_reply():
         QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="البداية"))
     ])
 
-# رسالة المساعدة - تصميم احترافي
+# رسالة المساعدة
 def get_help_message():
     return {
         "type": "bubble",
         "size": "mega",
-        "header": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": "🎮",
-                    "size": "xxl",
-                    "align": "center",
-                    "margin": "sm"
-                },
-                {
-                    "type": "text",
-                    "text": "مساعدة البوت",
-                    "weight": "bold",
-                    "size": "xl",
-                    "align": "center",
-                    "color": "#1a1a1a"
-                }
-            ],
-            "backgroundColor": "#f5f5f5",
-            "paddingAll": "20px"
-        },
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                            "type": "text",
-                            "text": "الأوامر الأساسية",
-                            "weight": "bold",
-                            "size": "lg",
-                            "color": "#2c2c2c"
-                        },
-                        {
-                            "type": "separator",
-                            "margin": "md",
-                            "color": "#e0e0e0"
-                        }
-                    ],
-                    "margin": "none"
-                },
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                            "type": "text",
-                            "text": "▫️ البداية / ابدأ",
-                            "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md"
-                        },
-                        {
-                            "type": "text",
-                            "text": "عرض قائمة الألعاب",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs"
-                        },
-                        {
-                            "type": "text",
-                            "text": "▫️ انضم",
-                            "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md"
-                        },
-                        {
-                            "type": "text",
-                            "text": "الانضمام للعبة النشطة",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs"
-                        },
-                        {
-                            "type": "text",
-                            "text": "▫️ نقاطي",
-                            "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md"
-                        },
-                        {
-                            "type": "text",
-                            "text": "عرض إحصائياتك الشخصية",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs"
-                        },
-                        {
-                            "type": "text",
-                            "text": "▫️ الصدارة",
-                            "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md"
-                        },
-                        {
-                            "type": "text",
-                            "text": "أفضل 10 لاعبين",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs"
-                        },
-                        {
-                            "type": "text",
-                            "text": "▫️ إيقاف",
-                            "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md"
-                        },
-                        {
-                            "type": "text",
-                            "text": "إنهاء اللعبة الحالية",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs"
-                        }
-                    ],
-                    "margin": "lg"
-                },
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
-                            "type": "text",
-                            "text": "الألعاب المتاحة",
-                            "weight": "bold",
-                            "size": "lg",
-                            "color": "#2c2c2c",
-                            "margin": "xl"
-                        },
-                        {
-                            "type": "separator",
-                            "margin": "md",
-                            "color": "#e0e0e0"
-                        },
-                        {
-                            "type": "text",
-                            "text": "14 لعبة تفاعلية متنوعة",
-                            "size": "sm",
-                            "color": "#6c6c6c",
-                            "margin": "md"
-                        }
-                    ]
-                }
-            ],
-            "backgroundColor": "#ffffff",
-            "paddingAll": "20px"
-        },
-        "footer": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": "تم إنشاء هذا البوت بواسطة عبير الدوسري",
-                    "size": "xs",
-                    "color": "#6c6c6c",
-                    "align": "center"
-                }
-            ],
-            "backgroundColor": "#f5f5f5",
-            "paddingAll": "12px"
-        },
-        "styles": {
-            "body": {
-                "separator": True
-            }
-        }
+        "header": {"type": "box", "layout": "vertical", "contents":[{"type":"text","text":"🎮","size":"xxl","align":"center","margin":"sm"},{"type":"text","text":"مساعدة البوت","weight":"bold","size":"xl","align":"center","color":"#1a1a1a"}],"backgroundColor":"#f5f5f5","paddingAll":"20px"},
+        "body": {"type":"box","layout":"vertical","contents":[{"type":"box","layout":"vertical","contents":[{"type":"text","text":"الأوامر الأساسية","weight":"bold","size":"lg","color":"#2c2c2c"},{"type":"separator","margin":"md","color":"#e0e0e0"}],"margin":"none"},{"type":"box","layout":"vertical","contents":[{"type":"text","text":"▫️ البداية / ابدأ","size":"sm","color":"#4a4a4a","margin":"md"},{"type":"text","text":"عرض قائمة الألعاب","size":"xs","color":"#8c8c8c","margin":"xs"},{"type":"text","text":"▫️ انضم","size":"sm","color":"#4a4a4a","margin":"md"},{"type":"text","text":"الانضمام للعبة النشطة","size":"xs","color":"#8c8c8c","margin":"xs"},{"type":"text","text":"▫️ نقاطي","size":"sm","color":"#4a4a4a","margin":"md"},{"type":"text","text":"عرض إحصائياتك الشخصية","size":"xs","color":"#8c8c8c","margin":"xs"},{"type":"text","text":"▫️ الصدارة","size":"sm","color":"#4a4a4a","margin":"md"},{"type":"text","text":"أفضل 10 لاعبين","size":"xs","color":"#8c8c8c","margin":"xs"},{"type":"text","text":"▫️ إيقاف","size":"sm","color":"#4a4a4a","margin":"md"},{"type":"text","text":"إنهاء اللعبة الحالية","size":"xs","color":"#8c8c8c","margin":"xs"}],"margin":"lg"},{"type":"box","layout":"vertical","contents":[{"type":"text","text":"الألعاب المتاحة","weight":"bold","size":"lg","color":"#2c2c2c","margin":"xl"},{"type":"separator","margin":"md","color":"#e0e0e0"},{"type":"text","text":"14 لعبة تفاعلية متنوعة","size":"sm","color":"#6c6c6c","margin":"md"}]}],"backgroundColor":"#ffffff","paddingAll":"20px"},
+        "footer":{"type":"box","layout":"vertical","contents":[{"type":"text","text":"تم إنشاء هذا البوت بواسطة عبير الدوسري","size":"xs","color":"#6c6c6c","align":"center"}],"backgroundColor":"#f5f5f5","paddingAll":"12px"},
+        "styles":{"body":{"separator": True}}
     }
 
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
-    
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
-    
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -379,7 +201,6 @@ def handle_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
     
-    # التحقق من Rate Limit
     if not check_rate_limit(user_id):
         line_bot_api.reply_message(
             event.reply_token,
@@ -387,346 +208,110 @@ def handle_message(event):
         )
         return
     
-    # الحصول على معلومات المستخدم
     try:
         profile = line_bot_api.get_profile(user_id)
         display_name = profile.display_name
     except:
         display_name = "مستخدم"
     
-    # معرف اللعبة
     game_id = event.source.group_id if hasattr(event.source, 'group_id') else user_id
     
-    # الأوامر الأساسية
-    if text in ['البداية', 'ابدأ', 'start', 'قائمة']:
+    if text.lower() in ['البداية', 'ابدأ', 'start', 'قائمة']:
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(
-                text="🎮 اختر لعبة\n\n💡 اضغط على اللعبة للبدء",
-                quick_reply=get_quick_reply()
-            )
+            TextSendMessage(text="🎮 اختر لعبة\n\n💡 اضغط على اللعبة للبدء", quick_reply=get_quick_reply())
         )
         return
-    
-    elif text == 'المزيد':
+    elif text.lower() == 'المزيد':
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(
-                text="📋 خيارات إضافية",
-                quick_reply=get_more_quick_reply()
-            )
+            TextSendMessage(text="📋 خيارات إضافية", quick_reply=get_more_quick_reply())
         )
         return
-    
-    elif text == 'مساعدة':
+    elif text.lower() == 'مساعدة':
         line_bot_api.reply_message(
             event.reply_token,
-            FlexSendMessage(
-                alt_text="مساعدة",
-                contents=get_help_message(),
-                quick_reply=get_quick_reply()
-            )
+            FlexSendMessage(alt_text="مساعدة", contents=get_help_message(), quick_reply=get_quick_reply())
         )
         return
-    
-    elif text == 'مساعدة':
-        line_bot_api.reply_message(
-            event.reply_token,
-            FlexSendMessage(alt_text="مساعدة", contents=get_help_message())
-        )
-        return
-    
-    elif text == 'مساعدة':
-        line_bot_api.reply_message(
-            event.reply_token,
-            FlexSendMessage(
-                alt_text="مساعدة",
-                contents=get_help_message(),
-                quick_reply=get_quick_reply()
-            )
-        )
-        return
-    
-    elif text == 'نقاطي':
+    elif text.lower() == 'نقاطي':
         stats = get_user_stats(user_id)
-        if stats:
-            msg = f"📊 إحصائياتك\n\n👤 {stats[1]}\n⭐ النقاط: {stats[2]}\n🎮 الألعاب: {stats[3]}\n🏆 الفوز: {stats[4]}"
-        else:
-            msg = "📊 لم تلعب أي لعبة بعد\n\n🎮 ابدأ الآن!"
-        
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=msg, quick_reply=get_quick_reply())
-        )
+        msg = f"📊 إحصائياتك\n\n👤 {stats[1]}\n⭐ النقاط: {stats[2]}\n🎮 الألعاب: {stats[3]}\n🏆 الفوز: {stats[4]}" if stats else "📊 لم تلعب أي لعبة بعد\n\n🎮 ابدأ الآن!"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg, quick_reply=get_quick_reply()))
         return
-    
-    elif text == 'الصدارة':
+    elif text.lower() == 'الصدارة':
         leaders = get_leaderboard()
         if leaders:
-            msg = "🏆 لوحة الصدارة\n\n"
-            for i, leader in enumerate(leaders, 1):
-                emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"  {i}."
-                msg += f"{emoji} {leader[0]}: {leader[1]} نقطة\n"
+            msg = "🏆 لوحة الصدارة\n\n" + "\n".join([("🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"  {i+1}.") + f" {l[0]}: {l[1]} نقطة" for i,l in enumerate(leaders)])
         else:
             msg = "🏆 لا توجد بيانات بعد"
-        
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=msg, quick_reply=get_quick_reply())
-        )
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg, quick_reply=get_quick_reply()))
         return
-    
-    elif text == 'إيقاف':
+    elif text.lower() == 'إيقاف':
         if game_id in active_games:
             del active_games[game_id]
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="✅ تم إيقاف اللعبة", quick_reply=get_quick_reply())
-            )
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ تم إيقاف اللعبة", quick_reply=get_quick_reply()))
         else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="❌ لا توجد لعبة نشطة", quick_reply=get_quick_reply())
-            )
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ لا توجد لعبة نشطة", quick_reply=get_quick_reply()))
         return
-    
-    # الانضمام للعبة
-    elif text == 'انضم':
-        if game_id in active_games:
-            game_data = active_games[game_id]
+    elif text.lower() == 'انضم':
+        joined_any = False
+        for gid, game_data in active_games.items():
             if 'participants' not in game_data:
                 game_data['participants'] = set()
-            
-            if user_id in game_data['participants']:
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(
-                        text=f"✅ أنت مسجل بالفعل يا {display_name}",
-                        quick_reply=get_quick_reply()
-                    )
-                )
-            else:
+            if user_id not in game_data['participants']:
                 game_data['participants'].add(user_id)
-                line_bot_api.reply_message(
-                    event.reply_token,
-                    TextSendMessage(
-                        text=f"✅ انضم {display_name} للعبة\n👥 عدد اللاعبين: {len(game_data['participants'])}",
-                        quick_reply=get_quick_reply()
-                    )
-                )
+                joined_any = True
+        if joined_any:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ {display_name} انضم لجميع الألعاب النشطة", quick_reply=get_quick_reply()))
         else:
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text="❌ لا توجد لعبة نشطة\n\n🎮 ابدأ لعبة أولاً", quick_reply=get_quick_reply())
-            )
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ لا توجد ألعاب نشطة أو أنك مسجل بالفعل في جميع الألعاب", quick_reply=get_quick_reply()))
         return
-    
-    # بدء الألعاب
-    if text == 'ذكاء':
-        game = IQGame(line_bot_api, use_ai=USE_AI)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'iq',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
+
+    game_mapping = {
+        'ذكاء': IQGame,
+        'كلمة ولون': WordColorGame,
+        'سلسلة': ChainWordsGame,
+        'ترتيب الحروف': ScrambleWordGame,
+        'تكوين كلمات': LettersWordsGame,
+        'أسرع': FastTypingGame,
+        'لعبة': HumanAnimalPlantGame,
+        'خمن': GuessGame,
+        'توافق': CompatibilityGame,
+        'رياضيات': MathGame,
+        'ذاكرة': MemoryGame,
+        'لغز': RiddleGame,
+        'ضد': OppositeGame,
+        'إيموجي': EmojiGame
+    }
+
+    if text in game_mapping:
+        game_cls = game_mapping[text]
+        game = game_cls(line_bot_api, use_ai=USE_AI) if 'use_ai' in game_cls.__init__.__code__.co_varnames else game_cls(line_bot_api)
+        active_games[game_id] = {'game': game, 'type': text.lower(), 'created_at': datetime.now(), 'participants': {user_id}}
+        response = game.start_game() if hasattr(game, 'start_game') else TextSendMessage(text=f"🎮 بدأت لعبة {text}")
         line_bot_api.reply_message(event.reply_token, response)
         return
-    
-    elif text == 'كلمة ولون':
-        game = WordColorGame(line_bot_api, use_ai=USE_AI)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'word_color',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'سلسلة':
-        game = ChainWordsGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'chain',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'ترتيب الحروف':
-        game = ScrambleWordGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'scramble',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'تكوين كلمات':
-        game = LettersWordsGame(line_bot_api, use_ai=USE_AI)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'letters',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'أسرع':
-        game = FastTypingGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'fast',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'لعبة':
-        game = HumanAnimalPlantGame(line_bot_api, use_ai=USE_AI)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'hap',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'خمن':
-        game = GuessGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'guess',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'توافق':
-        game = CompatibilityGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'compatibility',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=" لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
-        )
-        return
-    
-    elif text == 'رياضيات':
-        game = MathGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'math',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'ذاكرة':
-        game = MemoryGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'memory',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'لغز':
-        game = RiddleGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'riddle',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'ضد':
-        game = OppositeGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'opposite',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    elif text == 'إيموجي':
-        game = EmojiGame(line_bot_api)
-        active_games[game_id] = {
-            'game': game,
-            'type': 'emoji',
-            'created_at': datetime.now(),
-            'participants': {user_id}
-        }
-        response = game.start_game()
-        line_bot_api.reply_message(event.reply_token, response)
-        return
-    
-    # معالجة إجابات الألعاب النشطة
+
     if game_id in active_games:
         game_data = active_games[game_id]
-        
-        # التحقق من أن المستخدم منضم للعبة
         if 'participants' in game_data and user_id not in game_data['participants']:
-            # تجاهل الرسائل من غير المشاركين
             return
-        
         game = game_data['game']
-        
-        result = game.check_answer(text, user_id, display_name)
-        
+        result = game.check_answer(text, user_id, display_name) if hasattr(game, 'check_answer') else None
         if result:
             points = result.get('points', 0)
             if points > 0:
                 update_user_points(user_id, display_name, points, result.get('won', False))
-            
             if result.get('game_over', False):
                 del active_games[game_id]
-                response = TextSendMessage(
-                    text=result.get('message', 'انتهت اللعبة'),
-                    quick_reply=get_quick_reply()
-                )
+                response = TextSendMessage(text=result.get('message', 'انتهت اللعبة'), quick_reply=get_quick_reply())
             else:
                 response = result.get('response', TextSendMessage(text=result.get('message', '')))
-                # إضافة الأزرار للرسائل أثناء اللعبة أيضاً
                 if hasattr(response, 'quick_reply') and response.quick_reply is None:
                     response.quick_reply = get_quick_reply()
-            
             line_bot_api.reply_message(event.reply_token, response)
         return
-    
-    # تجاهل أي رسائل أخرى لا تتعلق بالبوت
-    return
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
