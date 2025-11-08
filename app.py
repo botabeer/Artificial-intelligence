@@ -332,7 +332,7 @@ def get_help_message():
                 },
                 {
                     "type": "text",
-                    "text": "15 لعبة تفاعلية متاحة",
+                    "text": "تم إنشاء هذا البوت بواسطة عبير الدوسري",
                     "size": "xs",
                     "color": "#8a8a8a",
                     "align": "center",
