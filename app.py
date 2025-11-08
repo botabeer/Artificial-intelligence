@@ -152,14 +152,15 @@ cleanup_thread.start()
 
 # الأزرار الثابتة - تظهر دائماً
 def get_quick_reply():
-    """الأزرار الثابتة لجميع الرسائل"""
+    """الأزرار الثابتة لجميع الرسائل (مرتبة حسب التفضيل)"""
     return QuickReply(items=[
+        QuickReplyButton(action=MessageAction(label="👥 انضم", text="انضم")),
+        QuickReplyButton(action=MessageAction(label="⚡ أسرع", text="أسرع")),
         QuickReplyButton(action=MessageAction(label="🧠 ذكاء", text="ذكاء")),
-        QuickReplyButton(action=MessageAction(label="🎨 لون", text="كلمة ولون")),
+        QuickReplyButton(action=MessageAction(label="🎨 كلمة ولون", text="كلمة ولون")),
         QuickReplyButton(action=MessageAction(label="🔗 سلسلة", text="سلسلة")),
         QuickReplyButton(action=MessageAction(label="🧩 ترتيب", text="ترتيب الحروف")),
         QuickReplyButton(action=MessageAction(label="📝 تكوين", text="تكوين كلمات")),
-        QuickReplyButton(action=MessageAction(label="⚡ أسرع", text="أسرع")),
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="❓ خمن", text="خمن")),
         QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
