@@ -346,7 +346,7 @@ def get_help_message():
             "contents": [
                 {
                     "type": "text",
-                    "text": "اكتب اسم اللعبة للبدء",
+                    "text": "تم إنشاء هذا البوت بواسطة عبير الدوسري",
                     "size": "xs",
                     "color": "#6c6c6c",
                     "align": "center"
