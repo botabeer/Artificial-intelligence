@@ -6,73 +6,81 @@ class GuessGame:
     def __init__(self, line_bot_api):
         self.line_bot_api = line_bot_api
         self.current_word = None
-        self.hint = None
         self.first_letter = None
         self.category = None
-        
-        # قائمة الألغاز المنظمة حسب الفئات
+
+        # قائمة ضخمة من الفئات والكلمات (فصحى وعامية سعودية)
         self.riddles = [
-            # أشياء في المطبخ
+            # المطبخ
             {"category": "المطبخ", "answer": "قدر", "first_letter": "ق"},
             {"category": "المطبخ", "answer": "ملعقة", "first_letter": "م"},
-            {"category": "المطبخ", "answer": "سكين", "first_letter": "س"},
-            {"category": "المطبخ", "answer": "طنجرة", "first_letter": "ط"},
-            {"category": "المطبخ", "answer": "كوب", "first_letter": "ك"},
+            {"category": "المطبخ", "answer": "كاسة", "first_letter": "ك"},
             {"category": "المطبخ", "answer": "صحن", "first_letter": "ص"},
+            {"category": "المطبخ", "answer": "براد", "first_letter": "ب"},
             {"category": "المطبخ", "answer": "فرن", "first_letter": "ف"},
-            {"category": "المطبخ", "answer": "ثلاجة", "first_letter": "ث"},
             {"category": "المطبخ", "answer": "خلاط", "first_letter": "خ"},
+            {"category": "المطبخ", "answer": "طنجرة", "first_letter": "ط"},
             {"category": "المطبخ", "answer": "مقلاة", "first_letter": "م"},
-            
-            # أشياء في المدرسة
+            {"category": "المطبخ", "answer": "مطرب", "first_letter": "م"}, # عامية
+
+            # غرفة النوم
+            {"category": "غرفة النوم", "answer": "سرير", "first_letter": "س"},
+            {"category": "غرفة النوم", "answer": "دولاب", "first_letter": "د"},
+            {"category": "غرفة النوم", "answer": "وسادة", "first_letter": "و"},
+            {"category": "غرفة النوم", "answer": "ستارة", "first_letter": "س"},
+            {"category": "غرفة النوم", "answer": "لمبه", "first_letter": "ل"},
+            {"category": "غرفة النوم", "answer": "مكتب", "first_letter": "م"},
+            {"category": "غرفة النوم", "answer": "خزانة", "first_letter": "خ"},
+            {"category": "غرفة النوم", "answer": "مصباح", "first_letter": "م"},
+            {"category": "غرفة النوم", "answer": "حصيرة", "first_letter": "ح"},
+
+            # الفواكه
+            {"category": "الفواكه", "answer": "تفاح", "first_letter": "ت"},
+            {"category": "الفواكه", "answer": "برتقال", "first_letter": "ب"},
+            {"category": "الفواكه", "answer": "موز", "first_letter": "م"},
+            {"category": "الفواكه", "answer": "عنب", "first_letter": "ع"},
+            {"category": "الفواكه", "answer": "كيوي", "first_letter": "ك"},
+            {"category": "الفواكه", "answer": "رمان", "first_letter": "ر"},
+            {"category": "الفواكه", "answer": "خوخ", "first_letter": "خ"},
+            {"category": "الفواكه", "answer": "فراولة", "first_letter": "ف"},
+            {"category": "الفواكه", "answer": "تين", "first_letter": "ت"},
+
+            # المدرسة
             {"category": "المدرسة", "answer": "مسطرة", "first_letter": "م"},
             {"category": "المدرسة", "answer": "قلم", "first_letter": "ق"},
-            {"category": "المدرسة", "answer": "كتاب", "first_letter": "ك"},
             {"category": "المدرسة", "answer": "دفتر", "first_letter": "د"},
             {"category": "المدرسة", "answer": "ممحاة", "first_letter": "م"},
             {"category": "المدرسة", "answer": "شنطة", "first_letter": "ش"},
-            {"category": "المدرسة", "answer": "طاولة", "first_letter": "ط"},
             {"category": "المدرسة", "answer": "سبورة", "first_letter": "س"},
             {"category": "المدرسة", "answer": "براية", "first_letter": "ب"},
             {"category": "المدرسة", "answer": "حقيبة", "first_letter": "ح"},
-            
-            # أشياء في البيت
-            {"category": "البيت", "answer": "باب", "first_letter": "ب"},
-            {"category": "البيت", "answer": "نافذة", "first_letter": "ن"},
-            {"category": "البيت", "answer": "سرير", "first_letter": "س"},
-            {"category": "البيت", "answer": "كرسي", "first_letter": "ك"},
-            {"category": "البيت", "answer": "مرآة", "first_letter": "م"},
-            {"category": "البيت", "answer": "تلفاز", "first_letter": "ت"},
-            {"category": "البيت", "answer": "ساعة", "first_letter": "س"},
-            {"category": "البيت", "answer": "مكتب", "first_letter": "م"},
-            
-            # أشياء في الشارع
-            {"category": "الشارع", "answer": "سيارة", "first_letter": "س"},
-            {"category": "الشارع", "answer": "إشارة", "first_letter": "ا"},
-            {"category": "الشارع", "answer": "رصيف", "first_letter": "ر"},
-            {"category": "الشارع", "answer": "شجرة", "first_letter": "ش"},
-            {"category": "الشارع", "answer": "دراجة", "first_letter": "د"},
-            {"category": "الشارع", "answer": "حافلة", "first_letter": "ح"},
-            
-            # أشياء في المستشفى
-            {"category": "المستشفى", "answer": "سرير", "first_letter": "س"},
-            {"category": "المستشفى", "answer": "حقنة", "first_letter": "ح"},
-            {"category": "المستشفى", "answer": "دواء", "first_letter": "د"},
-            {"category": "المستشفى", "answer": "كرسي", "first_letter": "ك"},
-            {"category": "المستشفى", "answer": "ميزان", "first_letter": "م"},
-            
-            # ملابس
-            {"category": "الملابس", "answer": "قميص", "first_letter": "ق"},
-            {"category": "الملابس", "answer": "بنطال", "first_letter": "ب"},
-            {"category": "الملابس", "answer": "حذاء", "first_letter": "ح"},
-            {"category": "الملابس", "answer": "جورب", "first_letter": "ج"},
-            {"category": "الملابس", "answer": "معطف", "first_letter": "م"},
-            {"category": "الملابس", "answer": "طاقية", "first_letter": "ط"},
-            {"category": "الملابس", "answer": "عباءة", "first_letter": "ع"}
+            {"category": "المدرسة", "answer": "ألوان", "first_letter": "أ"},
+            {"category": "المدرسة", "answer": "دفترملاحظات", "first_letter": "د"},
+
+            # أدوات شخصية
+            {"category": "أدوات شخصية", "answer": "فرشاه", "first_letter": "ف"},
+            {"category": "أدوات شخصية", "answer": "صابون", "first_letter": "ص"},
+            {"category": "أدوات شخصية", "answer": "مشط", "first_letter": "م"},
+            {"category": "أدوات شخصية", "answer": "معجون", "first_letter": "م"},
+            {"category": "أدوات شخصية", "answer": "مناشف", "first_letter": "م"},
+            {"category": "أدوات شخصية", "answer": "مزيلعرق", "first_letter": "م"},
+            {"category": "أدوات شخصية", "answer": "فرشاةاسنان", "first_letter": "ف"},
+
+            # حيوانات
+            {"category": "حيوانات", "answer": "قطة", "first_letter": "ق"},
+            {"category": "حيوانات", "answer": "كلب", "first_letter": "ك"},
+            {"category": "حيوانات", "answer": "حصان", "first_letter": "ح"},
+            {"category": "حيوانات", "answer": "جمل", "first_letter": "ج"},
+            {"category": "حيوانات", "answer": "غزال", "first_letter": "غ"},
+            {"category": "حيوانات", "answer": "بقرة", "first_letter": "ب"},
+            {"category": "حيوانات", "answer": "ديك", "first_letter": "د"},
+            {"category": "حيوانات", "answer": "نعامة", "first_letter": "ن"},
+            {"category": "حيوانات", "answer": "حمامة", "first_letter": "ح"},
+
+            # يمكنك إضافة المزيد من الفئات: سيارات، رياضة، أدوات مكتبية، مطاعم، مشروبات، حلويات، طبيعة، أماكن عامة، إلخ
         ]
-    
+
     def normalize_text(self, text):
-        """تطبيع النص للمقارنة"""
         text = text.strip().lower()
         text = re.sub(r'^ال', '', text)
         text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
@@ -80,30 +88,30 @@ class GuessGame:
         text = text.replace('ى', 'ي')
         text = re.sub(r'[\u064B-\u065F]', '', text)
         return text
-    
+
     def start_game(self):
         riddle = random.choice(self.riddles)
         self.current_word = riddle["answer"].lower()
         self.category = riddle["category"]
         self.first_letter = riddle["first_letter"]
-        
+
         return TextSendMessage(
             text=f"❓ خمن:\n\n📍 شيء في {self.category}\n🔤 يبدأ بحرف: {self.first_letter}\n\n💡 ما هو؟"
         )
-    
+
     def check_answer(self, answer, user_id, display_name):
         if not self.current_word:
             return None
-        
+
         user_answer = self.normalize_text(answer)
         correct_answer = self.normalize_text(self.current_word)
-        
+
         if user_answer == correct_answer:
             points = 10
             msg = f"✅ ممتاز يا {display_name}!\n🎯 الإجابة: {self.current_word}\n📍 من {self.category}\n⭐ +{points} نقطة"
-            
+
             self.current_word = None
-            
+
             return {
                 'message': msg,
                 'points': points,
