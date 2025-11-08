@@ -60,7 +60,7 @@ class OppositeGame:
         self.correct_answer = self.opposites[self.current_word]
         
         return TextSendMessage(
-            text=f"🔄 ما هو عكس:\n\n{self.current_word}\n\n❓ اكتب الكلمة المعاكسة!"
+            text=f"🔄 ما هو ضد:\n\n{self.current_word}\n\n❓ اكتب الكلمة المعاكسة"
         )
     
     def check_answer(self, answer, user_id, display_name):
@@ -72,7 +72,7 @@ class OppositeGame:
         
         if user_answer == correct_answer:
             points = 10
-            msg = f"✅ صحيح يا {display_name}!\nعكس {self.current_word} = {self.correct_answer}\n⭐ +{points} نقطة"
+            msg = f"✅ صحيح يا {display_name}!\nضد {self.current_word} = {self.correct_answer}\n⭐ +{points} نقطة"
             
             self.current_word = None
             
