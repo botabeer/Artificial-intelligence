@@ -163,7 +163,7 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="📝 تكوين", text="تكوين كلمات")),
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="❓ خمن", text="خمن")),
-        QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
+        QuickReplyButton(action=MessageAction(label="🔄 ضد", text="ضد")),
         QuickReplyButton(action=MessageAction(label="🧠 ذاكرة", text="ذاكرة")),
         QuickReplyButton(action=MessageAction(label="🤔 لغز", text="لغز")),
         QuickReplyButton(action=MessageAction(label="📋 المزيد", text="المزيد"))
@@ -172,13 +172,12 @@ def get_quick_reply():
 def get_more_quick_reply():
     """أزرار المزيد"""
     return QuickReply(items=[
-        QuickReplyButton(action=MessageAction(label="🔄 ضد", text="ضد")),
+        QuickReplyButton(action=MessageAction(label="➕ رياضيات", text="رياضيات")),
         QuickReplyButton(action=MessageAction(label="😀 إيموجي", text="إيموجي")),
         QuickReplyButton(action=MessageAction(label="💖 توافق", text="توافق")),
         QuickReplyButton(action=MessageAction(label="📊 نقاطي", text="نقاطي")),
         QuickReplyButton(action=MessageAction(label="🏆 صدارة", text="الصدارة")),
         QuickReplyButton(action=MessageAction(label="ℹ️ مساعدة", text="مساعدة")),
-        QuickReplyButton(action=MessageAction(label="👥 انضم", text="انضم")),
         QuickReplyButton(action=MessageAction(label="🛑 إيقاف", text="إيقاف")),
         QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="البداية"))
     ])
