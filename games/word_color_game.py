@@ -1,4 +1,5 @@
 import random
+import re
 from datetime import datetime
 from linebot.models import TextSendMessage
 
@@ -11,17 +12,30 @@ class WordColorGame:
         
         # قائمة الألوان والأمثلة
         self.colors = {
-            "أحمر": ["تفاحة", "طماطم", "فراولة", "كرز", "دم", "وردة"],
-            "أخضر": ["عشب", "نعناع", "خس", "خيار", "زيتون", "شجرة"],
-            "أزرق": ["سماء", "بحر", "ماء", "حوت", "طائر"],
-            "أصفر": ["شمس", "موز", "ليمون", "ذهب", "كناري"],
-            "برتقالي": ["برتقال", "جزر", "يقطين", "مانجو"],
-            "أبيض": ["حليب", "سكر", "ملح", "قطن", "ثلج"],
-            "أسود": ["ليل", "فحم", "غراب", "بترول"],
+            "أحمر": ["تفاحة", "تفاح", "طماطم", "فراولة", "كرز", "دم", "وردة", "فلفل"],
+            "أخضر": ["عشب", "نعناع", "خس", "خيار", "زيتون", "شجرة", "ملوخية", "فلفل"],
+            "أزرق": ["سماء", "بحر", "ماء", "حوت", "طائر", "نهر"],
+            "أصفر": ["شمس", "موز", "ليمون", "ذهب", "كناري", "ليمونة"],
+            "برتقالي": ["برتقال", "جزر", "يقطين", "مانجو", "برتقالة"],
+            "أبيض": ["حليب", "سكر", "ملح", "قطن", "ثلج", "لبن", "رز", "أرز"],
+            "أسود": ["ليل", "فحم", "غراب", "بترول", "نفط"],
             "وردي": ["فلامنجو", "علكة", "خوخ", "زهرة"],
-            "بني": ["خشب", "تراب", "قهوة", "شوكولاتة"],
+            "بني": ["خشب", "تراب", "قهوة", "شوكولاتة", "شوكولاته"],
             "بنفسجي": ["باذنجان", "عنب", "بنفسج", "أرجوان"]
         }
+    
+    def normalize_text(self, text):
+        """تطبيع النص للمقارنة"""
+        text = text.strip().lower()
+        # إزالة ال التعريف
+        text = re.sub(r'^ال', '', text)
+        # توحيد الهمزات
+        text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
+        text = text.replace('ة', 'ه')
+        text = text.replace('ى', 'ي')
+        # إزالة التشكيل
+        text = re.sub(r'[\u064B-\u065F]', '', text)
+        return text
     
     def start_game(self):
         self.current_color = random.choice(list(self.colors.keys()))
@@ -34,12 +48,12 @@ class WordColorGame:
             return None
         
         elapsed = (datetime.now() - self.start_time).total_seconds()
-        user_answer = answer.strip().lower()
+        user_answer = self.normalize_text(answer)
         
         # التحقق من الإجابة
-        valid_answers = [item.lower() for item in self.colors[self.current_color]]
+        valid_answers = [self.normalize_text(item) for item in self.colors[self.current_color]]
         
-        if user_answer in valid_answers or any(valid in user_answer for valid in valid_answers):
+        if user_answer in valid_answers:
             if elapsed <= 5:
                 points = 20
                 speed = "سريع جداً"
