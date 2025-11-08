@@ -206,12 +206,12 @@ def get_more_quick_reply():
         QuickReplyButton(action=MessageAction(label="⬅️ رجوع", text="البداية"))
     ])
 
-# رسالة المساعدة - تصميم احترافي
+# رسالة المساعدة - تصميم ناعم ومريح
 def get_help_message():
     return {
         "type": "bubble",
         "size": "mega",
-        "header": {
+        "body": {
             "type": "box",
             "layout": "vertical",
             "contents": [
@@ -220,24 +220,22 @@ def get_help_message():
                     "text": "🎮",
                     "size": "xxl",
                     "align": "center",
-                    "margin": "sm"
+                    "color": "#2c2c2c"
                 },
                 {
                     "type": "text",
-                    "text": "دليل الاستخدام",
+                    "text": "مساعدة البوت",
                     "weight": "bold",
                     "size": "xl",
                     "align": "center",
-                    "color": "#1a1a1a"
-                }
-            ],
-            "backgroundColor": "#f5f5f5",
-            "paddingAll": "20px"
-        },
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
+                    "color": "#1a1a1a",
+                    "margin": "md"
+                },
+                {
+                    "type": "separator",
+                    "margin": "xl",
+                    "color": "#e8e8e8"
+                },
                 {
                     "type": "box",
                     "layout": "vertical",
@@ -246,92 +244,64 @@ def get_help_message():
                             "type": "text",
                             "text": "الأوامر الأساسية",
                             "weight": "bold",
-                            "size": "lg",
-                            "color": "#2c2c2c"
+                            "size": "md",
+                            "color": "#3a3a3a",
+                            "margin": "lg"
                         },
                         {
-                            "type": "separator",
-                            "margin": "md",
-                            "color": "#e0e0e0"
-                        }
-                    ],
-                    "margin": "none"
-                },
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {
                             "type": "text",
-                            "text": "👥 انضم",
+                            "text": "• البداية / ابدأ - عرض القائمة",
                             "size": "sm",
-                            "color": "#4a4a4a",
+                            "color": "#6a6a6a",
                             "margin": "md",
-                            "weight": "bold"
-                        },
-                        {
-                            "type": "text",
-                            "text": "تسجيل دائم - إجاباتك تُحسب في جميع الألعاب",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs",
                             "wrap": True
                         },
                         {
                             "type": "text",
-                            "text": "👋 انسحب",
+                            "text": "• انضم - التسجيل في جميع الألعاب",
                             "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md",
-                            "weight": "bold"
-                        },
-                        {
-                            "type": "text",
-                            "text": "إلغاء التسجيل من جميع الألعاب",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs",
+                            "color": "#6a6a6a",
+                            "margin": "sm",
                             "wrap": True
                         },
                         {
                             "type": "text",
-                            "text": "🛑 إيقاف",
+                            "text": "• انسحب - إلغاء التسجيل",
                             "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md",
-                            "weight": "bold"
-                        },
-                        {
-                            "type": "text",
-                            "text": "إنهاء اللعبة الحالية (يدعم: إيقاف / ايقاف)",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs",
+                            "color": "#6a6a6a",
+                            "margin": "sm",
                             "wrap": True
                         },
                         {
                             "type": "text",
-                            "text": "📊 نقاطي",
+                            "text": "• نقاطي - عرض إحصائياتك",
                             "size": "sm",
-                            "color": "#4a4a4a",
-                            "margin": "md",
-                            "weight": "bold"
+                            "color": "#6a6a6a",
+                            "margin": "sm",
+                            "wrap": True
                         },
                         {
                             "type": "text",
-                            "text": "عرض إحصائياتك وحالة التسجيل",
-                            "size": "xs",
-                            "color": "#8c8c8c",
-                            "margin": "xs",
+                            "text": "• الصدارة - أفضل 10 لاعبين",
+                            "size": "sm",
+                            "color": "#6a6a6a",
+                            "margin": "sm",
+                            "wrap": True
+                        },
+                        {
+                            "type": "text",
+                            "text": "• إيقاف - إنهاء اللعبة الحالية",
+                            "size": "sm",
+                            "color": "#6a6a6a",
+                            "margin": "sm",
                             "wrap": True
                         }
-                    ],
-                    "margin": "lg"
+                    ]
                 },
                 {
                     "type": "separator",
                     "margin": "xl",
-                    "color": "#e0e0e0"
+                    "color": "#e8e8e8"
                 },
                 {
                     "type": "box",
@@ -342,42 +312,35 @@ def get_help_message():
                             "text": "💡 نصيحة",
                             "weight": "bold",
                             "size": "md",
-                            "color": "#2c2c2c",
-                            "margin": "md"
+                            "color": "#3a3a3a",
+                            "margin": "lg"
                         },
                         {
                             "type": "text",
                             "text": "اكتب 'انضم' مرة واحدة فقط، وستُحسب إجاباتك في جميع الألعاب تلقائياً",
-                            "size": "xs",
-                            "color": "#6c6c6c",
-                            "margin": "sm",
+                            "size": "sm",
+                            "color": "#6a6a6a",
+                            "margin": "md",
                             "wrap": True
                         }
                     ]
-                }
-            ],
-            "backgroundColor": "#ffffff",
-            "paddingAll": "20px"
-        },
-        "footer": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
+                },
+                {
+                    "type": "separator",
+                    "margin": "xl",
+                    "color": "#e8e8e8"
+                },
                 {
                     "type": "text",
                     "text": "15 لعبة تفاعلية متاحة",
                     "size": "xs",
-                    "color": "#6c6c6c",
-                    "align": "center"
+                    "color": "#8a8a8a",
+                    "align": "center",
+                    "margin": "lg"
                 }
             ],
-            "backgroundColor": "#f5f5f5",
-            "paddingAll": "12px"
-        },
-        "styles": {
-            "body": {
-                "separator": True
-            }
+            "backgroundColor": "#ffffff",
+            "paddingAll": "24px"
         }
     }
 
@@ -430,43 +393,43 @@ def handle_message(event):
                         "text": "🎮",
                         "size": "xxl",
                         "align": "center",
-                        "color": "#1a1a1a"
+                        "color": "#2c2c2c"
                     },
                     {
                         "type": "text",
-                        "text": "مرحباً بك في البوت",
+                        "text": "مرحباً بك",
                         "weight": "bold",
                         "size": "xl",
                         "align": "center",
-                        "color": "#2c2c2c",
+                        "color": "#1a1a1a",
                         "margin": "md"
                     },
                     {
                         "type": "separator",
-                        "margin": "lg",
-                        "color": "#e0e0e0"
+                        "margin": "xl",
+                        "color": "#e8e8e8"
                     },
                     {
                         "type": "text",
-                        "text": "للبدء:",
+                        "text": "للبدء",
                         "weight": "bold",
                         "size": "md",
-                        "color": "#4a4a4a",
-                        "margin": "lg"
+                        "color": "#3a3a3a",
+                        "margin": "xl"
                     },
                     {
                         "type": "text",
                         "text": "1️⃣ اضغط على 👥 انضم للتسجيل",
                         "size": "sm",
-                        "color": "#6c6c6c",
+                        "color": "#6a6a6a",
                         "margin": "md",
                         "wrap": True
                     },
                     {
                         "type": "text",
-                        "text": "2️⃣ اختر لعبة من الأزرار",
+                        "text": "2️⃣ اختر لعبة من الأزرار أدناه",
                         "size": "sm",
-                        "color": "#6c6c6c",
+                        "color": "#6a6a6a",
                         "margin": "sm",
                         "wrap": True
                     },
@@ -474,26 +437,27 @@ def handle_message(event):
                         "type": "text",
                         "text": "3️⃣ ابدأ اللعب واجمع النقاط",
                         "size": "sm",
-                        "color": "#6c6c6c",
+                        "color": "#6a6a6a",
                         "margin": "sm",
                         "wrap": True
                     },
                     {
                         "type": "separator",
-                        "margin": "lg",
-                        "color": "#e0e0e0"
+                        "margin": "xl",
+                        "color": "#e8e8e8"
                     },
                     {
                         "type": "text",
-                        "text": "💡 بعد الانضمام، يمكنك اللعب في جميع الألعاب النشطة",
+                        "text": "💡 بعد الانضمام، ستُحسب إجاباتك في جميع الألعاب تلقائياً",
                         "size": "xs",
-                        "color": "#8c8c8c",
-                        "margin": "md",
-                        "wrap": True
+                        "color": "#8a8a8a",
+                        "margin": "xl",
+                        "wrap": True,
+                        "align": "center"
                     }
                 ],
                 "backgroundColor": "#ffffff",
-                "paddingAll": "24px"
+                "paddingAll": "28px"
             }
         }
         
@@ -780,7 +744,7 @@ def handle_message(event):
         }
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="💖 لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
+            TextSendMessage(text=" لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
         )
         return
     
