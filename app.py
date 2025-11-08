@@ -187,7 +187,7 @@ def get_quick_reply():
         QuickReplyButton(action=MessageAction(label="🎮 لعبة", text="لعبة")),
         QuickReplyButton(action=MessageAction(label="❓ خمن", text="خمن")),
         QuickReplyButton(action=MessageAction(label="🔄 ضد", text="ضد")),
-        QuickReplyButton(action=MessageAction(label="📋 أكثر", text="أكثر"))
+        QuickReplyButton(action=MessageAction(label="📋 المزيد", text="أكثر"))
     ])
 
 def get_more_quick_reply():
@@ -730,7 +730,7 @@ def handle_message(event):
         }
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="💖 لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
+            TextSendMessage(text=" لعبة التوافق!\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
         )
         return
     
