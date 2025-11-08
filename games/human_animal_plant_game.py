@@ -3,7 +3,7 @@ import re
 from linebot.models import TextSendMessage
 import google.generativeai as genai
 
-class HumanAnimalPlantGameAI:
+class HumanAnimalPlantGame:
     def __init__(self, line_bot_api, use_ai=False, get_api_key=None, switch_key=None):
         self.line_bot_api = line_bot_api
         self.use_ai = use_ai
