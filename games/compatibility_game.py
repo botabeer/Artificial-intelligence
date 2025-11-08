@@ -12,7 +12,6 @@ class CompatibilityGame:
     
     def calculate_compatibility(self, name1, name2):
         """حساب نسبة التوافق (عشوائي بين 50-100%)"""
-        # استخدام أسماء لتوليد نسبة ثابتة لنفس الزوج
         seed = abs(hash(name1 + name2)) % 100
         compatibility = 50 + (seed % 51)  # بين 50-100
         return compatibility
@@ -20,15 +19,15 @@ class CompatibilityGame:
     def get_compatibility_message(self, percentage):
         """رسالة حسب النسبة"""
         if percentage >= 90:
-            return "💖 توافق رائع جداً! علاقة مثالية!"
+            return "توافق رائع جداً! علاقة مثالية!"
         elif percentage >= 80:
-            return "💕 توافق ممتاز! علاقة قوية!"
+            return "توافق ممتاز! علاقة قوية!"
         elif percentage >= 70:
-            return "💗 توافق جيد جداً!"
+            return "توافق جيد جداً!"
         elif percentage >= 60:
-            return "💓 توافق جيد!"
+            return "توافق جيد!"
         else:
-            return "💛 توافق مقبول!"
+            return "توافق مقبول!"
     
     def check_answer(self, answer, user_id, display_name):
         if not self.waiting_for_names:
@@ -39,10 +38,10 @@ class CompatibilityGame:
         
         if len(names) < 2:
             return {
-                'message': "❌ أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة",
+                'message': "أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة",
                 'points': 0,
                 'game_over': False,
-                'response': TextSendMessage(text="❌ أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة")
+                'response': TextSendMessage(text="أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة")
             }
         
         name1 = names[0]
@@ -52,10 +51,10 @@ class CompatibilityGame:
         percentage = self.calculate_compatibility(name1, name2)
         message = self.get_compatibility_message(percentage)
         
-        # رسم القلوب
-        hearts = "❤️" * (percentage // 20)
+        # رسم شريط نسبة التوافق بدل القلوب
+        bars = "|" * (percentage // 10)
         
-        result_text = f"💖 نسبة التوافق بين:\n{name1} و {name2}\n\n{hearts}\n\n{percentage}%\n\n{message}"
+        result_text = f"نسبة التوافق بين:\n{name1} و {name2}\n\n{bars}\n\n{percentage}%\n\n{message}"
         
         self.waiting_for_names = False
         
