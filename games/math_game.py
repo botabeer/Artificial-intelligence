@@ -1,81 +1,139 @@
-import random
+"""
+لعبة الرياضيات
+"""
 from linebot.models import TextSendMessage
+from .base_game import BaseGame
+import random
 
-class MathGame:
+
+class MathGame(BaseGame):
+    """لعبة العمليات الحسابية"""
+    
     def __init__(self, line_bot_api):
-        self.line_bot_api = line_bot_api
-        self.current_question = None
-        self.correct_answer = None
-        self.difficulty = "متوسط"
+        super().__init__(line_bot_api, questions_count=10)
+        self.difficulty = 1  # مستوى الصعوبة (يزداد مع التقدم)
     
     def generate_question(self):
-        """إنشاء سؤال رياضي عشوائي"""
-        operation = random.choice(['+', '-', '×', '÷'])
+        """توليد سؤال رياضي"""
+        # زيادة الصعوبة تدريجياً
+        max_num = 10 + (self.current_question * 5)
         
-        if operation == '+':
-            a = random.randint(10, 100)
-            b = random.randint(10, 100)
-            answer = a + b
-            question = f"{a} + {b}"
+        operations = ['+', '-', '*']
+        if self.current_question >= 5:  # إضافة القسمة في المراحل المتقدمة
+            operations.append('/')
         
-        elif operation == '-':
-            a = random.randint(20, 100)
-            b = random.randint(10, a)
-            answer = a - b
-            question = f"{a} - {b}"
+        operation = random.choice(operations)
         
-        elif operation == '×':
-            a = random.randint(2, 15)
-            b = random.randint(2, 15)
-            answer = a * b
-            question = f"{a} × {b}"
+        if operation == '/':
+            # للقسمة، نتأكد من النتيجة صحيحة
+            result = random.randint(2, max_num // 2)
+            num2 = random.randint(2, 10)
+            num1 = result * num2
+            answer = result
+        else:
+            num1 = random.randint(1, max_num)
+            num2 = random.randint(1, max_num)
+            
+            if operation == '+':
+                answer = num1 + num2
+            elif operation == '-':
+                # التأكد من أن النتيجة موجبة
+                if num1 < num2:
+                    num1, num2 = num2, num1
+                answer = num1 - num2
+            elif operation == '*':
+                # استخدام أرقام أصغر للضرب
+                num1 = random.randint(1, min(15, max_num))
+                num2 = random.randint(1, min(15, max_num))
+                answer = num1 * num2
         
-        else:  # ÷
-            b = random.randint(2, 12)
-            answer = random.randint(2, 20)
-            a = b * answer
-            question = f"{a} ÷ {b}"
+        question = f"{num1} {operation} {num2}"
         
-        return question, answer
+        return {
+            "question": question,
+            "answer": str(answer),
+            "num1": num1,
+            "num2": num2,
+            "operation": operation
+        }
     
     def start_game(self):
-        self.current_question, self.correct_answer = self.generate_question()
-        
-        return TextSendMessage(
-            text=f"➕ حل المسألة:\n\n{self.current_question} = ?\n\n🧮 أدخل الناتج الصحيح!"
-        )
+        """بدء اللعبة"""
+        self.current_question = 0
+        return self.get_question()
     
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_question:
+    def get_question(self):
+        """الحصول على السؤال الحالي"""
+        q_data = self.generate_question()
+        self.current_answer = q_data["answer"]
+        
+        # رموز العمليات بالعربي
+        op_symbols = {
+            '+': '➕',
+            '-': '➖',
+            '*': '✖️',
+            '/': '➗'
+        }
+        
+        op_symbol = op_symbols.get(q_data["operation"], q_data["operation"])
+        
+        message = f"➕ رياضيات ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"🔢 احسب:\n\n"
+        message += f"『 {q_data['num1']} {op_symbol} {q_data['num2']} = ؟ 』\n\n"
+        message += "💡 اكتب الناتج فقط"
+        
+        return TextSendMessage(text=message)
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
             return None
         
-        try:
-            user_answer = int(answer.strip())
-        except ValueError:
+        # التحقق من أن المستخدم لم يجب بعد
+        if user_id in self.answered_users:
+            return None
+        
+        # أوامر خاصة
+        if user_answer == 'جاوب':
+            reveal = self.reveal_answer()
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            
+            message = f"{reveal}\n\n" + next_q.text if hasattr(next_q, 'text') else reveal
             return {
-                'message': "❌ أدخل رقم صحيح فقط!",
-                'points': 0,
-                'game_over': False,
-                'response': TextSendMessage(text="❌ أدخل رقم صحيح فقط!")
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': 0
             }
         
-        if user_answer == self.correct_answer:
-            points = 12
-            msg = f"✅ ممتاز يا {display_name}!\n{self.current_question} = {self.correct_answer}\n⭐ +{points} نقطة"
+        # فحص الإجابة الرقمية
+        try:
+            user_num = user_answer.strip()
+            # إزالة الفواصل والمسافات
+            user_num = user_num.replace(',', '').replace(' ', '')
             
-            self.current_question = None
-            
-            return {
-                'message': msg,
-                'points': points,
-                'won': True,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
-            }
-        else:
-            return {
-                'message': f"❌ خطأ! الإجابة الصحيحة: {self.correct_answer}",
-                'points': 0,
-                'game_over': True,
-                'response': TextSendMessage(text=f"❌ خطأ! الإجابة الصحيحة: {self.correct_answer}")
-            }
+            if user_num == self.current_answer:
+                points = self.add_score(user_id, display_name, 10)
+                
+                # الانتقال للسؤال التالي
+                next_q = self.next_question()
+                
+                if isinstance(next_q, dict) and next_q.get('game_over'):
+                    next_q['points'] = points
+                    return next_q
+                
+                message = f"✅ إجابة صحيحة يا {display_name}!\n+{points} نقطة\n\n"
+                if hasattr(next_q, 'text'):
+                    message += next_q.text
+                
+                return {
+                    'message': message,
+                    'response': TextSendMessage(text=message),
+                    'points': points
+                }
+        except:
+            pass
+        
+        return None

@@ -1,136 +1,105 @@
-import random
-import re
-from datetime import datetime
+"""
+لعبة الكلمة واللون - Stroop Effect
+"""
 from linebot.models import TextSendMessage
-import google.generativeai as genai
+from .base_game import BaseGame
+import random
 
-class WordColorGame:
-    def __init__(self, line_bot_api, use_ai=False, get_api_key=None, switch_key=None):
-        self.line_bot_api = line_bot_api
-        self.use_ai = use_ai
-        self.get_api_key = get_api_key
-        self.switch_key = switch_key
-        self.current_color = None
-        self.current_category = None
-        self.start_time = None
-        self.model = None
-        
-        # تهيئة AI
-        if self.use_ai and self.get_api_key:
-            try:
-                api_key = self.get_api_key()
-                if api_key:
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            except Exception as e:
-                print(f"AI initialization error: {e}")
-                self.use_ai = False
-        
-        # قائمة الفئات والألوان
-        self.categories_colors = {
-            "فاكهة": {
-                "أحمر": ["تفاح", "تفاحة", "فراولة", "كرز", "رمان"],
-                "أخضر": ["عنب", "تفاح", "كيوي"],
-                "أصفر": ["موز", "ليمون", "مانجو", "أناناس"],
-                "برتقالي": ["برتقال", "برتقالة", "مانجو", "خوخ"],
-                "بنفسجي": ["عنب", "توت"]
-            },
-            "خضار": {
-                "أحمر": ["طماطم", "فلفل", "بنجر", "شمندر"],
-                "أخضر": ["خيار", "خس", "ملوخية", "فلفل", "بقدونس"],
-                "أصفر": ["فلفل", "ذرة"],
-                "برتقالي": ["جزر", "يقطين", "قرع"],
-                "أبيض": ["بصل", "ثوم", "قرنبيط"]
-            },
-            "حيوان": {
-                "أسود": ["غراب", "قط", "كلب"],
-                "أبيض": ["قط", "أرنب", "حمامة", "بجعة"],
-                "بني": ["جمل", "كلب", "دب"],
-                "أصفر": ["كناري", "عصفور"],
-                "رمادي": ["فيل", "ذئب", "حمار"]
-            },
-            "طيور": {
-                "أسود": ["غراب", "نسر"],
-                "أبيض": ["حمامة", "بجعة"],
-                "أحمر": ["فلامنجو"],
-                "أصفر": ["كناري", "عصفور"],
-                "أزرق": ["طاووس", "ببغاء"]
-            }
-        }
+
+class WordColorGame(BaseGame):
+    """لعبة الكلمة واللون"""
     
-    def normalize_text(self, text):
-        """تطبيع النص للمقارنة"""
-        text = text.strip().lower()
-        text = re.sub(r'^ال', '', text)
-        text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-        text = text.replace('ة', 'ه')
-        text = text.replace('ى', 'ي')
-        text = re.sub(r'[\u064B-\u065F]', '', text)
-        return text
+    def __init__(self, line_bot_api, use_ai=False, get_api_key=None, switch_key=None):
+        super().__init__(line_bot_api, questions_count=10)
+        
+        # قائمة الألوان
+        self.colors = {
+            "أحمر": "🔴",
+            "أزرق": "🔵",
+            "أخضر": "🟢",
+            "أصفر": "🟡",
+            "برتقالي": "🟠",
+            "أرجواني": "🟣",
+            "بني": "🟤",
+            "أسود": "⚫",
+            "أبيض": "⚪"
+        }
+        
+        self.color_names = list(self.colors.keys())
     
     def start_game(self):
-        self.current_category = random.choice(list(self.categories_colors.keys()))
-        available_colors = list(self.categories_colors[self.current_category].keys())
-        self.current_color = random.choice(available_colors)
-        self.start_time = datetime.now()
-        
-        return TextSendMessage(
-            text=f"🎨 اذكر {self.current_category} لونها {self.current_color}\n\n⏱️ لديك وقت محدود"
-        )
+        """بدء اللعبة"""
+        self.current_question = 0
+        return self.get_question()
     
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_color or not self.current_category:
+    def get_question(self):
+        """الحصول على السؤال الحالي"""
+        # اختيار كلمة ولون مختلف
+        word_color = random.choice(self.color_names)
+        display_color = random.choice(self.color_names)
+        
+        # في بعض الأحيان يكونان متطابقين
+        if random.random() < 0.3:
+            display_color = word_color
+        
+        self.current_answer = display_color
+        
+        color_emoji = self.colors[display_color]
+        
+        message = f"🎨 كلمة ولون ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"❓ ما لون الدائرة؟\n\n"
+        message += f"الكلمة: {word_color}\n"
+        message += f"الدائرة: {color_emoji}\n\n"
+        message += "💡 اكتب لون الدائرة وليس الكلمة!"
+        
+        return TextSendMessage(text=message)
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
             return None
         
-        elapsed = (datetime.now() - self.start_time).total_seconds()
-        user_answer = self.normalize_text(answer)
+        # التحقق من أن المستخدم لم يجب بعد
+        if user_id in self.answered_users:
+            return None
         
-        # التحقق باستخدام AI
-        is_correct = False
-        if self.use_ai and self.model:
-            try:
-                prompt = f"هل '{answer}' من فئة {self.current_category} ولونها {self.current_color}؟ أجب بنعم أو لا فقط"
-                response = self.model.generate_content(prompt)
-                ai_result = response.text.strip().lower()
-                
-                if 'نعم' in ai_result or 'yes' in ai_result:
-                    is_correct = True
-            except Exception as e:
-                print(f"AI check error: {e}")
-                if self.switch_key:
-                    self.switch_key()
-        
-        # التحقق التقليدي كاحتياطي
-        if not is_correct:
-            valid_answers = [self.normalize_text(item) for item in self.categories_colors[self.current_category][self.current_color]]
-            if user_answer in valid_answers:
-                is_correct = True
-        
-        if is_correct:
-            if elapsed <= 5:
-                points = 20
-                speed = "سريع جداً"
-            else:
-                points = 15
-                speed = "جيد"
+        # أوامر خاصة
+        if user_answer == 'جاوب':
+            reveal = self.reveal_answer()
+            next_q = self.next_question()
             
-            msg = f"✅ صحيح يا {display_name}!\n⚡ {speed} ({elapsed:.1f}ث)\n⭐ +{points} نقطة"
-            self.current_color = None
-            self.current_category = None
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            
+            message = f"{reveal}\n\n" + next_q.text if hasattr(next_q, 'text') else reveal
+            return {
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': 0
+            }
+        
+        # فحص الإجابة
+        normalized_answer = self.normalize_text(user_answer)
+        normalized_correct = self.normalize_text(self.current_answer)
+        
+        if normalized_answer == normalized_correct:
+            points = self.add_score(user_id, display_name, 10)
+            
+            # الانتقال للسؤال التالي
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                next_q['points'] = points
+                return next_q
+            
+            message = f"✅ ممتاز يا {display_name}!\n+{points} نقطة\n\n"
+            if hasattr(next_q, 'text'):
+                message += next_q.text
             
             return {
-                'message': msg,
-                'points': points,
-                'won': True,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': points
             }
-        else:
-            examples = ', '.join(self.categories_colors[self.current_category][self.current_color][:3])
-            msg = f"❌ خطأ! أمثلة صحيحة:\n{examples}"
-            return {
-                'message': msg,
-                'points': 0,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
-            }
+        
+        return None

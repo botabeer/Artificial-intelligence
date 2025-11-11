@@ -1,165 +1,134 @@
+"""
+لعبة أسئلة الذكاء مع دعم Gemini AI + تلميحات ذكية بدون رموز
+"""
+from linebot.models import TextSendMessage
+from .base_game import BaseGame
 import random
 import re
-from linebot.models import TextSendMessage
-import google.generativeai as genai
 
-class IQGame:
+
+class IQGame(BaseGame):
+    """لعبة أسئلة الذكاء"""
+    
     def __init__(self, line_bot_api, use_ai=False, get_api_key=None, switch_key=None):
-        self.line_bot_api = line_bot_api
+        super().__init__(line_bot_api, questions_count=10)
         self.use_ai = use_ai
         self.get_api_key = get_api_key
         self.switch_key = switch_key
-        self.current_question = None
-        self.correct_answer = None
-        self.model = None
         
-        # تهيئة AI إذا كان متاحاً
-        if self.use_ai and self.get_api_key:
-            try:
-                api_key = self.get_api_key()
-                if api_key:
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            except Exception as e:
-                print(f"AI initialization error: {e}")
-                self.use_ai = False
-        
-        # بنك الأسئلة الاحتياطي
+        # أسئلة وأجوبة جاهزة
         self.questions = [
-            {"question": "ما هو عدد أركان الإسلام؟", "answer": "5", "points": 10},
-            {"question": "ما هو ناتج 15 × 4؟", "answer": "60", "points": 10},
-            {"question": "كم عدد أيام السنة الهجرية؟", "answer": "354", "points": 15},
-            {"question": "ما هي عاصمة المملكة العربية السعودية؟", "answer": "الرياض", "points": 10},
-            {"question": "من هو أول خليفة راشدي؟", "answer": "أبو بكر الصديق", "points": 10},
-            {"question": "كم سورة في القرآن الكريم؟", "answer": "114", "points": 10},
-            {"question": "ما هو أطول نهر في العالم؟", "answer": "النيل", "points": 15},
-            {"question": "كم عدد ألوان قوس قزح؟", "answer": "7", "points": 10},
-            {"question": "ما هو أكبر كوكب في المجموعة الشمسية؟", "answer": "المشتري", "points": 15},
-            {"question": "كم عدد أحرف الأبجدية العربية؟", "answer": "28", "points": 10}
+            {"q": "ما هو الشيء الذي يمشي بلا أرجل ويبكي بلا عيون؟", "a": "السحاب"},
+            {"q": "ما هو الشيء الذي له رأس ولا يملك عيون؟", "a": "الدبوس"},
+            {"q": "شيء موجود في السماء إذا أضفت له حرفاً أصبح في الأرض؟", "a": "نجم"},
+            {"q": "ما هو الشيء الذي كلما زاد نقص؟", "a": "العمر"},
+            {"q": "له عين ولا يرى؟", "a": "الإبرة"},
+            {"q": "ما هو الشيء الذي يكتب ولا يقرأ؟", "a": "القلم"},
+            {"q": "شيء إذا أكلته كله تستفيد وإذا أكلت نصفه تموت؟", "a": "السم"},
+            {"q": "ما هو البيت الذي ليس له أبواب ولا نوافذ؟", "a": "بيت الشعر"},
+            {"q": "شيء له أسنان ولا يعض؟", "a": "المشط"},
+            {"q": "ما هو الشيء الذي يسمع بلا أذن ويتكلم بلا لسان؟", "a": "الهاتف"},
+            {"q": "أنا ابن الماء فإن تركوني في الماء مت، فمن أنا؟", "a": "الثلج"},
+            {"q": "ما هو الشيء الذي يقرصك ولا تراه؟", "a": "الجوع"},
+            {"q": "له رقبة وليس له رأس؟", "a": "الزجاجة"},
+            {"q": "ما هو الحيوان الذي يحك أذنه بأنفه؟", "a": "الفيل"},
+            {"q": "كلما أخذت منه كبر؟", "a": "الحفرة"},
+            {"q": "ما هو الشيء الذي يخترق الزجاج ولا يكسره؟", "a": "الضوء"},
+            {"q": "شيء أمامك لا تراه؟", "a": "المستقبل"},
+            {"q": "ما هو الشيء الذي له أربع أرجل ولا يمشي؟", "a": "الكرسي"},
+            {"q": "ما هو الشيء الذي ينبض بلا قلب؟", "a": "الساعة"},
+            {"q": "شيء تحمله ويحملك؟", "a": "الحذاء"},
         ]
-    
-    def normalize_text(self, text):
-        """تطبيع النص للمقارنة"""
-        text = text.strip().lower()
-        text = re.sub(r'^ال', '', text)
-        text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-        text = text.replace('ة', 'ه')
-        text = text.replace('ى', 'ي')
-        text = re.sub(r'[\u064B-\u065F]', '', text)
-        return text
-    
-    def generate_ai_question(self):
-        """توليد سؤال باستخدام AI"""
-        if not self.model:
-            return None
         
-        try:
-            prompt = """أنشئ سؤال ذكاء أو ثقافة عامة باللغة العربية.
-            
-            الرد يجب أن يكون بالصيغة التالية فقط:
-            السؤال: [السؤال هنا]
-            الإجابة: [الإجابة المختصرة]
-            
-            السؤال يجب أن يكون واضح ومباشر، والإجابة مختصرة (كلمة أو كلمتين أو رقم)."""
-            
-            response = self.model.generate_content(prompt)
-            text = response.text.strip()
-            
-            # استخراج السؤال والإجابة
-            lines = text.split('\n')
-            question = None
-            answer = None
-            
-            for line in lines:
-                if 'السؤال:' in line or 'سؤال:' in line:
-                    question = line.split(':', 1)[1].strip()
-                elif 'الإجابة:' in line or 'إجابة:' in line or 'الجواب:' in line:
-                    answer = line.split(':', 1)[1].strip()
-            
-            if question and answer:
-                return {"question": question, "answer": answer, "points": 10}
-            
-        except Exception as e:
-            print(f"AI question generation error: {e}")
-            # محاولة التبديل للمفتاح التالي
-            if self.switch_key and self.switch_key():
-                try:
-                    api_key = self.get_api_key()
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-                    return self.generate_ai_question()
-                except:
-                    pass
+        # تلميحات ذكية جاهزة
+        self.hints_dict = {
+            "السحاب": "يُرى في السماء وغالباً ما يرافق المطر.",
+            "الدبوس": "أداة صغيرة تُستخدم لتثبيت الأشياء.",
+            "نجم": "جسم يضيء في السماء ليلاً.",
+            "العمر": "يزيد مع مرور الوقت لكنه في الحقيقة ينقص.",
+            "الإبرة": "تُستخدم في الخياطة.",
+            "القلم": "أداة للكتابة.",
+            "السم": "مادة قاتلة حتى بكميات صغيرة.",
+            "بيت الشعر": "يُكتب ولا يُسكن.",
+            "المشط": "يُستخدم لتسريح الشعر.",
+            "الهاتف": "يسمع ويتكلم دون أذن أو لسان.",
+            "الثلج": "أبيض يذوب عند الحرارة.",
+            "الجوع": "شعور يأتي من نقص الطعام.",
+            "الزجاجة": "تُستخدم لحفظ السوائل.",
+            "الفيل": "حيوان ضخم له خرطوم طويل.",
+            "الحفرة": "كلما أخذت منها كبرت.",
+            "الضوء": "يخترق الزجاج دون أن يكسره.",
+            "المستقبل": "أمامك دائماً لكن لا تراه.",
+            "الكرسي": "له أرجل ولا يمشي.",
+            "الساعة": "تمشي وتقف وليس لها أرجل.",
+            "الحذاء": "تحمله بيدك ويحملك على قدميك."
+        }
         
-        return None
-    
+        random.shuffle(self.questions)
+
     def start_game(self):
-        # محاولة توليد سؤال بالذكاء الاصطناعي
-        if self.use_ai:
-            ai_question = self.generate_ai_question()
-            if ai_question:
-                self.current_question = ai_question["question"]
-                self.correct_answer = ai_question["answer"].strip().lower()
-                self.points = ai_question["points"]
-                return TextSendMessage(text=f"🧠 سؤال:\n\n{self.current_question}\n\n💡 أجب بشكل صحيح")
+        """بدء اللعبة"""
+        self.current_question = 0
+        self.game_active = True
+        return self.get_question()
+
+    def get_question(self):
+        """عرض السؤال الحالي"""
+        question_data = self.questions[self.current_question % len(self.questions)]
+        self.current_answer = question_data["a"]
+
+        message = f"سؤال ذكاء ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"{question_data['q']}\n\n"
+        message += "اكتب الإجابة أو:\n"
+        message += "• اكتب 'لمح' للحصول على تلميح.\n"
+        message += "• اكتب 'جاوب' لمعرفة الإجابة."
+
+        return TextSendMessage(text=message)
+
+    def get_hint(self):
+        """إرجاع تلميح ذكي بدون رموز"""
+        answer = self.current_answer.strip()
+        hint = self.hints_dict.get(answer)
         
-        # استخدام الأسئلة المحفوظة كاحتياطي
-        question_data = random.choice(self.questions)
-        self.current_question = question_data["question"]
-        self.correct_answer = question_data["answer"].strip().lower()
-        self.points = question_data["points"]
-        
-        return TextSendMessage(text=f"🧠 سؤال:\n\n{self.current_question}\n\n💡 أجب بشكل صحيح")
-    
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_question:
-            return None
-        
-        user_answer = self.normalize_text(answer)
-        correct_answer = self.normalize_text(self.correct_answer)
-        
-        # التحقق باستخدام AI إذا كان متاحاً
-        if self.use_ai and self.model:
-            try:
-                prompt = f"""هل الإجابة '{answer}' صحيحة للسؤال '{self.current_question}'؟
-                الإجابة الصحيحة هي: {self.correct_answer}
-                
-                أجب فقط بـ 'نعم' أو 'لا'"""
-                
-                response = self.model.generate_content(prompt)
-                ai_result = response.text.strip().lower()
-                
-                if 'نعم' in ai_result or 'yes' in ai_result:
-                    msg = f"✅ إجابة صحيحة يا {display_name}!\n⭐ +{self.points} نقطة"
-                    self.current_question = None
-                    return {
-                        'message': msg,
-                        'points': self.points,
-                        'won': True,
-                        'game_over': True,
-                        'response': TextSendMessage(text=msg)
-                    }
-            except Exception as e:
-                print(f"AI check error: {e}")
-                # التبديل للمفتاح التالي
-                if self.switch_key:
-                    self.switch_key()
-        
-        # التحقق التقليدي
-        if user_answer == correct_answer or correct_answer in user_answer:
-            msg = f"✅ إجابة صحيحة يا {display_name}!\n⭐ +{self.points} نقطة"
-            self.current_question = None
-            return {
-                'message': msg,
-                'points': self.points,
-                'won': True,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
-            }
+        if hint:
+            return f"تلميح: {hint}"
         else:
-            return {
-                'message': f"❌ خطأ! الإجابة الصحيحة: {self.correct_answer}",
-                'points': 0,
-                'game_over': True,
-                'response': TextSendMessage(text=f"❌ خطأ! الإجابة الصحيحة: {self.correct_answer}")
-            }
+            # تلميح عام في حال لم يوجد تلميح جاهز
+            return f"تلميح: الكلمة تتعلق بـ '{answer[:2]}...'"
+
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
+            return None
+
+        # أوامر خاصة
+        if user_answer == 'لمح':
+            hint = self.get_hint()
+            return {'message': hint, 'response': TextSendMessage(text=hint), 'points': 0}
+
+        if user_answer == 'جاوب':
+            reveal = self.reveal_answer()
+            next_q = self.next_question()
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            message = f"{reveal}\n\n" + next_q.text if hasattr(next_q, 'text') else reveal
+            return {'message': message, 'response': TextSendMessage(text=message), 'points': 0}
+
+        # تحقق من الإجابة
+        normalized_answer = self.normalize_text(user_answer)
+        normalized_correct = self.normalize_text(self.current_answer)
+
+        if normalized_answer == normalized_correct or normalized_answer in normalized_correct:
+            points = self.add_score(user_id, display_name, 10)
+            next_q = self.next_question()
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                next_q['points'] = points
+                return next_q
+
+            message = f"إجابة صحيحة يا {display_name}! حصلت على {points} نقطة.\n\n"
+            if hasattr(next_q, 'text'):
+                message += next_q.text
+
+            return {'message': message, 'response': TextSendMessage(text=message), 'points': points}
+
+        return None

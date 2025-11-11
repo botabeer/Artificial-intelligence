@@ -1,96 +1,98 @@
-import random
+"""
+لعبة سلسلة الكلمات
+"""
 from linebot.models import TextSendMessage
+from .base_game import BaseGame
+import random
 
-class ChainWordsGame:
-    def __init__(self, line_bot_api):
-        self.line_bot_api = line_bot_api
-        self.current_word = None
-        self.used_words = set()
-        self.round = 0
-        self.max_rounds = 10
-        
-        # كلمات البداية
-        self.start_words = [
-            "سيارة", "قمر", "شمس", "كتاب", "مدرسة", "بيت",
-            "طائر", "نهر", "جبل", "زهرة", "سحاب", "مطر"
-        ]
+
+class ChainWordsGame(BaseGame):
+    """لعبة سلسلة الكلمات"""
     
-    def normalize_letter(self, letter):
-        """تحويل الحروف الخاصة لحروف قياسية"""
-        # تحويل جميع أشكال التاء المربوطة والهاء
-        if letter in ['ة', 'ه']:
-            return 'ه'
-        # تحويل جميع أشكال الهمزة
-        elif letter in ['ء', 'ؤ', 'ئ', 'ى']:
-            return 'ا'
-        # تحويل الألفات المختلفة
-        elif letter in ['أ', 'إ', 'آ']:
-            return 'ا'
-        return letter
+    def __init__(self, line_bot_api):
+        super().__init__(line_bot_api, questions_count=10)
+        
+        # قائمة كلمات للبداية
+        self.starting_words = [
+            "سيارة", "تفاح", "قلم", "نجم", "كتاب", "باب", "رمل", 
+            "لعبة", "حديقة", "ورد", "دفتر", "معلم", "منزل", "شمس",
+            "سفر", "رياضة", "علم", "مدرسة", "طائرة", "عصير"
+        ]
+        
+        # الكلمة الحالية
+        self.last_word = None
+        self.used_words = set()
     
     def start_game(self):
-        self.current_word = random.choice(self.start_words)
-        self.used_words.add(self.current_word.lower())
-        self.round = 1
-        
-        last_letter = self.normalize_letter(self.current_word[-1])
-        
-        return TextSendMessage(
-            text=f"🔗 لعبة السلسلة!\n\nالكلمة: {self.current_word}\nاكتب كلمة تبدأ بحرف: {last_letter}\n\nالجولة: {self.round}/{self.max_rounds}"
-        )
+        """بدء اللعبة"""
+        self.current_question = 0
+        self.last_word = random.choice(self.starting_words)
+        self.used_words.add(self.normalize_text(self.last_word))
+        return self.get_question()
     
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_word:
+    def get_question(self):
+        """الحصول على السؤال الحالي"""
+        # الحرف المطلوب هو آخر حرف من الكلمة السابقة
+        required_letter = self.last_word[-1]
+        
+        message = f"🔗 سلسلة الكلمات ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"📝 الكلمة السابقة: {self.last_word}\n\n"
+        message += f"🔤 اكتب كلمة تبدأ بحرف: {required_letter}\n\n"
+        message += "⚠️ لا تكرر الكلمات المستخدمة"
+        
+        return TextSendMessage(text=message)
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
             return None
         
-        user_word = answer.strip()
-        user_word_lower = user_word.lower()
+        # التحقق من أن المستخدم لم يجب بعد
+        if user_id in self.answered_users:
+            return None
         
-        # التحقق من التكرار
-        if user_word_lower in self.used_words:
+        # تطبيع الإجابة
+        normalized_answer = self.normalize_text(user_answer)
+        
+        # التحقق من أن الكلمة لم تستخدم من قبل
+        if normalized_answer in self.used_words:
             return {
-                'message': f"❌ الكلمة '{user_word}' مستخدمة مسبقاً!",
-                'points': 0,
-                'game_over': False,
-                'response': TextSendMessage(text=f"❌ الكلمة '{user_word}' مستخدمة مسبقاً!")
+                'message': f"❌ الكلمة '{user_answer}' مستخدمة من قبل!",
+                'response': TextSendMessage(text=f"❌ الكلمة '{user_answer}' مستخدمة من قبل!"),
+                'points': 0
             }
         
-        # التحقق من الحرف الأول
-        last_letter = self.normalize_letter(self.current_word[-1])
-        first_letter = self.normalize_letter(user_word[0])
+        # التحقق من أن الكلمة تبدأ بالحرف الصحيح
+        required_letter = self.last_word[-1]
         
-        if first_letter != last_letter:
-            return {
-                'message': f"❌ يجب أن تبدأ بحرف: {last_letter}",
-                'points': 0,
-                'game_over': False,
-                'response': TextSendMessage(text=f"❌ يجب أن تبدأ بحرف: {last_letter}")
-            }
+        if normalized_answer and normalized_answer[0] == self.normalize_text(required_letter):
+            # التحقق من أن الكلمة عربية وصحيحة (على الأقل 2 حرف)
+            if len(normalized_answer) >= 2:
+                # إضافة الكلمة للمستخدمة
+                self.used_words.add(normalized_answer)
+                self.last_word = user_answer.strip()
+                
+                points = self.add_score(user_id, display_name, 10)
+                
+                # الانتقال للسؤال التالي
+                self.current_question += 1
+                self.answered_users.clear()
+                
+                if self.current_question >= self.questions_count:
+                    result = self.end_game()
+                    result['points'] = points
+                    return result
+                
+                next_q = self.get_question()
+                
+                message = f"✅ ممتاز يا {display_name}!\n+{points} نقطة\n\n"
+                if hasattr(next_q, 'text'):
+                    message += next_q.text
+                
+                return {
+                    'message': message,
+                    'response': TextSendMessage(text=message),
+                    'points': points
+                }
         
-        # إجابة صحيحة
-        self.used_words.add(user_word_lower)
-        self.current_word = user_word
-        self.round += 1
-        points = 10
-        
-        # التحقق من نهاية اللعبة
-        if self.round > self.max_rounds:
-            total_points = points * (self.max_rounds)
-            msg = f"🎉 أحسنت يا {display_name}!\nأكملت جميع الجولات!\n⭐ إجمالي النقاط: {total_points}"
-            return {
-                'message': msg,
-                'points': total_points,
-                'won': True,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
-            }
-        
-        next_letter = self.normalize_letter(user_word[-1])
-        msg = f"✅ صحيح! +{points}\n\nالكلمة: {user_word}\nاكتب كلمة تبدأ بحرف: {next_letter}\n\nالجولة: {self.round}/{self.max_rounds}"
-        
-        return {
-            'message': msg,
-            'points': points,
-            'game_over': False,
-            'response': TextSendMessage(text=msg)
-        }
+        return None

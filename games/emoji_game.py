@@ -1,86 +1,121 @@
-import random
-import re
+"""
+لعبة تخمين الإيموجي
+"""
 from linebot.models import TextSendMessage
+from .base_game import BaseGame
+import random
 
-class EmojiGame:
-    def __init__(self, line_bot_api):
-        self.line_bot_api = line_bot_api
-        self.current_emojis = None
-        self.correct_answer = None
-        
-        # قاموس الإيموجي والكلمات
-        self.emoji_words = [
-            {"emojis": "🌙 ⭐", "answer": "ليل", "hints": ["ليل", "سماء الليل", "نجوم"]},
-            {"emojis": "☀️ 🏖️", "answer": "صيف", "hints": ["صيف", "شاطئ", "بحر"]},
-            {"emojis": "📚 ✏️", "answer": "دراسة", "hints": ["دراسة", "مدرسة", "تعليم"]},
-            {"emojis": "🍕 🍔", "answer": "طعام", "hints": ["طعام", "اكل", "غذاء"]},
-            {"emojis": "⚽ 🏃", "answer": "رياضة", "hints": ["رياضة", "كرة", "لعب"]},
-            {"emojis": "🏠 👨‍👩‍👧‍👦", "answer": "عائلة", "hints": ["عائلة", "اسرة", "اهل"]},
-            {"emojis": "✈️ 🌍", "answer": "سفر", "hints": ["سفر", "رحلة", "سياحة"]},
-            {"emojis": "💻 📱", "answer": "تقنية", "hints": ["تقنية", "تكنولوجيا", "حاسوب"]},
-            {"emojis": "🌹 💐", "answer": "ورد", "hints": ["ورد", "زهور", "زهرة"]},
-            {"emojis": "🚗 🛣️", "answer": "قيادة", "hints": ["قيادة", "سيارة", "طريق"]},
-            {"emojis": "☕ 🍪", "answer": "قهوة", "hints": ["قهوة", "شاي", "مشروب"]},
-            {"emojis": "🎵 🎸", "answer": "موسيقى", "hints": ["موسيقى", "اغاني", "غناء"]},
-            {"emojis": "🐱 🐶", "answer": "حيوانات", "hints": ["حيوانات", "اليفة", "قط"]},
-            {"emojis": "📖 🖊️", "answer": "كتابة", "hints": ["كتابة", "تاليف", "كتاب"]},
-            {"emojis": "🌧️ ⛈️", "answer": "مطر", "hints": ["مطر", "امطار", "شتاء"]},
-            
-            # أمثلة جديدة
-            {"emojis": "🎬 🍿", "answer": "سينما", "hints": ["سينما", "فيلم", "عرض"]},
-            {"emojis": "🏰 🏯", "answer": "قلعة", "hints": ["قلعة", "حصن", "مبنى"]},
-            {"emojis": "🛒 🏪", "answer": "تسوق", "hints": ["تسوق", "محل", "شراء"]},
-            {"emojis": "🎂 🕯️", "answer": "عيد ميلاد", "hints": ["عيد ميلاد", "حفلة", "كيك"]},
-            {"emojis": "🚑 🏥", "answer": "مستشفى", "hints": ["مستشفى", "طبيب", "علاج"]},
-            {"emojis": "🖼️ 🎨", "answer": "فن", "hints": ["فن", "رسم", "لوحة"]},
-            {"emojis": "🍎 🍌", "answer": "فواكه", "hints": ["فواكه", "تفاح", "موز"]},
-            {"emojis": "🎮 🕹️", "answer": "ألعاب", "hints": ["ألعاب", "فيديو", "متعة"]},
-            {"emojis": "💧 🚿", "answer": "ماء", "hints": ["ماء", "شرب", "استحمام"]},
-            {"emojis": "🚌 🚏", "answer": "حافلة", "hints": ["حافلة", "مواصلات", "ركوب"]}
-        ]
+
+class EmojiGame(BaseGame):
+    """لعبة تخمين معنى الإيموجي"""
     
-    def normalize_text(self, text):
-        """تطبيع النص للمقارنة"""
-        text = text.strip().lower()
-        text = re.sub(r'^ال', '', text)
-        text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-        text = text.replace('ة', 'ه')
-        text = text.replace('ى', 'ي')
-        text = re.sub(r'[\u064B-\u065F]', '', text)
-        return text
+    def __init__(self, line_bot_api):
+        super().__init__(line_bot_api, questions_count=10)
+        
+        # قائمة الإيموجي مع معانيها
+        self.emojis = [
+            {"emoji": "🚗", "answer": "سيارة"},
+            {"emoji": "✈️", "answer": "طائرة"},
+            {"emoji": "🏠", "answer": "بيت"},
+            {"emoji": "📱", "answer": "هاتف"},
+            {"emoji": "💻", "answer": "حاسوب"},
+            {"emoji": "📚", "answer": "كتاب"},
+            {"emoji": "⚽", "answer": "كرة"},
+            {"emoji": "🍎", "answer": "تفاحة"},
+            {"emoji": "🌙", "answer": "قمر"},
+            {"emoji": "☀️", "answer": "شمس"},
+            {"emoji": "⭐", "answer": "نجم"},
+            {"emoji": "🌸", "answer": "زهرة"},
+            {"emoji": "🌳", "answer": "شجرة"},
+            {"emoji": "🐱", "answer": "قطة"},
+            {"emoji": "🐶", "answer": "كلب"},
+            {"emoji": "🦁", "answer": "أسد"},
+            {"emoji": "🐘", "answer": "فيل"},
+            {"emoji": "🦅", "answer": "نسر"},
+            {"emoji": "🐠", "answer": "سمكة"},
+            {"emoji": "🎂", "answer": "كعكة"},
+            {"emoji": "🍕", "answer": "بيتزا"},
+            {"emoji": "☕", "answer": "قهوة"},
+            {"emoji": "🎵", "answer": "موسيقى"},
+            {"emoji": "⚽", "answer": "كرة قدم"},
+            {"emoji": "🏆", "answer": "كأس"}
+        ]
+        
+        random.shuffle(self.emojis)
     
     def start_game(self):
-        emoji_data = random.choice(self.emoji_words)
-        self.current_emojis = emoji_data["emojis"]
-        self.correct_answer = emoji_data["answer"]
-        self.hints = emoji_data["hints"]
-        
-        return TextSendMessage(
-            text=f"خمن الكلمة من الإيموجي:\n\n{self.current_emojis}\n\nما هي الكلمة؟"
-        )
+        """بدء اللعبة"""
+        self.current_question = 0
+        return self.get_question()
     
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_emojis:
+    def get_question(self):
+        """الحصول على السؤال الحالي"""
+        emoji_data = self.emojis[self.current_question % len(self.emojis)]
+        self.current_answer = emoji_data["answer"]
+        
+        message = f"😀 خمن الإيموجي ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"❓ ما معنى هذا الإيموجي؟\n\n"
+        message += f"『 {emoji_data['emoji']} 』\n\n"
+        message += "💡 اكتب الإجابة أو:\n"
+        message += "• لمح - للحصول على تلميح\n"
+        message += "• جاوب - لعرض الإجابة"
+        
+        return TextSendMessage(text=message)
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
             return None
         
-        user_answer = self.normalize_text(answer)
-        hints_normalized = [self.normalize_text(h) for h in self.hints]
+        # التحقق من أن المستخدم لم يجب بعد
+        if user_id in self.answered_users:
+            return None
         
-        if user_answer in hints_normalized:
-            points = 12
-            msg = f"رائع يا {display_name}!\n{self.current_emojis} = {self.correct_answer}\n+{points} نقطة"
-            self.current_emojis = None
+        # أوامر خاصة
+        if user_answer == 'لمح':
+            hint = self.get_hint()
             return {
-                'message': msg,
-                'points': points,
-                'won': True,
-                'game_over': True,
-                'response': TextSendMessage(text=msg)
+                'message': hint,
+                'response': TextSendMessage(text=hint),
+                'points': 0
             }
-        else:
+        
+        if user_answer == 'جاوب':
+            reveal = self.reveal_answer()
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            
+            message = f"{reveal}\n\n" + next_q.text if hasattr(next_q, 'text') else reveal
             return {
-                'message': f"خطأ!\nالإجابة الصحيحة: {self.correct_answer}",
-                'points': 0,
-                'game_over': True,
-                'response': TextSendMessage(text=f"خطأ!\nالإجابة الصحيحة: {self.correct_answer}")
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': 0
             }
+        
+        # فحص الإجابة
+        normalized_answer = self.normalize_text(user_answer)
+        normalized_correct = self.normalize_text(self.current_answer)
+        
+        if normalized_answer == normalized_correct or normalized_answer in normalized_correct:
+            points = self.add_score(user_id, display_name, 10)
+            
+            # الانتقال للسؤال التالي
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                next_q['points'] = points
+                return next_q
+            
+            message = f"✅ ممتاز يا {display_name}!\n+{points} نقطة\n\n"
+            if hasattr(next_q, 'text'):
+                message += next_q.text
+            
+            return {
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': points
+            }
+        
+        return None

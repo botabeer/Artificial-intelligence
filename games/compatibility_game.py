@@ -1,47 +1,69 @@
-import random
+"""
+لعبة التوافق بين الأسماء
+"""
 from linebot.models import TextSendMessage
+from .base_game import BaseGame
+import random
 
-class CompatibilityGame:
-    def __init__(self, line_bot_api):
-        self.line_bot_api = line_bot_api
-        self.waiting_for_names = True
+
+class CompatibilityGame(BaseGame):
+    """لعبة حساب التوافق بين اسمين"""
     
-    def start_game(self):
-        self.waiting_for_names = True
-        return None  # يتم التعامل معها في app.py
+    def __init__(self, line_bot_api):
+        super().__init__(line_bot_api, questions_count=1)
+        self.game_active = True
     
     def calculate_compatibility(self, name1, name2):
-        """حساب نسبة التوافق (عشوائي بين 50-100%)"""
-        seed = abs(hash(name1 + name2)) % 100
-        compatibility = 50 + (seed % 51)  # بين 50-100
-        return compatibility
+        """حساب نسبة التوافق"""
+        # خوارزمية بسيطة لحساب التوافق
+        # (مجموع قيم ASCII للأسماء) % 100
+        
+        name1_clean = self.normalize_text(name1)
+        name2_clean = self.normalize_text(name2)
+        
+        # حساب مجموع
+        total1 = sum(ord(c) for c in name1_clean)
+        total2 = sum(ord(c) for c in name2_clean)
+        
+        # إضافة بعض العشوائية المستقرة
+        combined = name1_clean + name2_clean
+        seed = sum(ord(c) * (i+1) for i, c in enumerate(combined))
+        
+        # حساب النسبة
+        percentage = (seed % 81) + 20  # نسبة بين 20-100
+        
+        return percentage
     
-    def get_compatibility_message(self, percentage):
-        """رسالة حسب النسبة"""
+    def get_message(self, percentage):
+        """الحصول على رسالة حسب النسبة"""
         if percentage >= 90:
-            return "توافق رائع جداً! علاقة مثالية!"
-        elif percentage >= 80:
-            return "توافق ممتاز! علاقة قوية!"
-        elif percentage >= 70:
-            return "توافق جيد جداً!"
+            return "💖 توافق رائع جداً! علاقة مثالية"
+        elif percentage >= 75:
+            return "💕 توافق ممتاز! علاقة قوية"
         elif percentage >= 60:
-            return "توافق جيد!"
+            return "💗 توافق جيد! علاقة واعدة"
+        elif percentage >= 45:
+            return "💓 توافق متوسط! يحتاج عمل"
         else:
-            return "توافق مقبول!"
+            return "💔 توافق ضعيف! قد تكون هناك تحديات"
     
-    def check_answer(self, answer, user_id, display_name):
-        if not self.waiting_for_names:
+    def start_game(self):
+        """بدء اللعبة"""
+        return TextSendMessage(text="💖 لعبة التوافق!\n\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة وحساب التوافق"""
+        if not self.game_active:
             return None
         
-        # تقسيم الأسماء
-        names = answer.strip().split()
+        # تقسيم النص للحصول على الاسمين
+        names = user_answer.strip().split()
         
         if len(names) < 2:
             return {
-                'message': "أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة",
-                'points': 0,
-                'game_over': False,
-                'response': TextSendMessage(text="أدخل اسمين مفصولين بمسافة!\nمثال: أحمد فاطمة")
+                'message': "⚠️ يرجى كتابة اسمين مفصولين بمسافة\nمثال: أحمد فاطمة",
+                'response': TextSendMessage(text="⚠️ يرجى كتابة اسمين مفصولين بمسافة\nمثال: أحمد فاطمة"),
+                'points': 0
             }
         
         name1 = names[0]
@@ -49,19 +71,36 @@ class CompatibilityGame:
         
         # حساب التوافق
         percentage = self.calculate_compatibility(name1, name2)
-        message = self.get_compatibility_message(percentage)
+        message_text = self.get_message(percentage)
         
-        # رسم شريط نسبة التوافق بدل القلوب
-        bars = "|" * (percentage // 10)
+        # بناء الرسالة
+        message = f"💖 نتيجة التوافق\n"
+        message += "="*25 + "\n\n"
+        message += f"👤 {name1}\n"
+        message += f"❤️\n"
+        message += f"👤 {name2}\n\n"
+        message += f"📊 نسبة التوافق: {percentage}%\n\n"
         
-        result_text = f"نسبة التوافق بين:\n{name1} و {name2}\n\n{bars}\n\n{percentage}%\n\n{message}"
+        # شريط النسبة
+        bars = "█" * (percentage // 10)
+        empty_bars = "░" * (10 - (percentage // 10))
+        message += f"[{bars}{empty_bars}]\n\n"
         
-        self.waiting_for_names = False
+        message += f"💬 {message_text}"
+        
+        # منح نقاط للمشاركة
+        points = 5
+        self.add_score(user_id, display_name, points)
+        
+        self.game_active = False
         
         return {
-            'message': result_text,
-            'points': 0,  # لا نقاط لهذه اللعبة
-            'won': False,
             'game_over': True,
-            'response': TextSendMessage(text=result_text)
+            'message': message,
+            'response': TextSendMessage(text=message),
+            'points': points
         }
+    
+    def get_question(self):
+        """الحصول على السؤال"""
+        return TextSendMessage(text="💖 لعبة التوافق!\n\nاكتب اسمين مفصولين بمسافة\nمثال: أحمد فاطمة")

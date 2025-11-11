@@ -1,152 +1,176 @@
-import random
-import re
+"""
+لعبة إنسان حيوان نبات جماد بلاد
+"""
 from linebot.models import TextSendMessage
-import google.generativeai as genai
+from .base_game import BaseGame
+import random
 
-class HumanAnimalPlantGame:
+
+class HumanAnimalPlantGame(BaseGame):
+    """لعبة إنسان حيوان نبات جماد بلاد"""
+    
     def __init__(self, line_bot_api, use_ai=False, get_api_key=None, switch_key=None):
-        self.line_bot_api = line_bot_api
-        self.use_ai = use_ai
-        self.get_api_key = get_api_key
-        self.switch_key = switch_key
+        super().__init__(line_bot_api, questions_count=10)
+        
+        # الحروف المتاحة
+        self.letters = list("ابتثجحخدذرزسشصضطظعغفقكلمنهوي")
+        random.shuffle(self.letters)
+        
+        # الفئات
+        self.categories = ["إنسان", "حيوان", "نبات", "جماد", "بلاد"]
         self.current_category = None
         self.current_letter = None
-        self.model = None
-
-        # إعداد AI إذا مفعل
-        if self.use_ai and self.get_api_key:
-            try:
-                api_key = self.get_api_key()
-                if api_key:
-                    genai.configure(api_key=api_key)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            except Exception as e:
-                print(f"AI initialization error: {e}")
-                self.use_ai = False
-
-        # فئات وأمثلة لكل الحروف
-        self.categories = {
+        
+        # قاعدة بيانات للإجابات الصحيحة
+        self.answers_db = {
             "إنسان": {
-                "ا": ["أحمد", "إبراهيم", "أمل", "إيمان", "آدم"],
+                "أ": ["أحمد", "أمل", "أسامة", "أمير"],
+                "ب": ["بدر", "بسمة", "باسل"],
                 "م": ["محمد", "مريم", "ماجد", "منى"],
-                "ع": ["علي", "عائشة", "عمر", "عبير"],
-                "س": ["سعيد", "سارة", "سلمان"],
-                "ف": ["فهد", "فاطمة", "فيصل"],
-                "ن": ["نورة", "ناصر", "نوف"],
-                "emoji": "👤"
+                "س": ["سارة", "سعيد", "سامي"],
+                "ع": ["علي", "عمر", "عائشة"],
+                "ف": ["فاطمة", "فهد", "فيصل"],
+                "ل": ["ليلى", "لطيفة", "لؤي"],
+                "ن": ["نور", "نادر", "نهى"],
+                "ه": ["هند", "هاني", "هدى"],
+                "ي": ["يوسف", "ياسر", "ياسمين"]
             },
             "حيوان": {
-                "ا": ["أسد", "أرنب", "أفعى", "إوز"],
-                "ن": ["نمر", "نحلة", "نملة"],
+                "أ": ["أسد", "أرنب", "أفعى"],
+                "ب": ["بقرة", "بطة", "ببغاء"],
+                "ج": ["جمل", "جاموس"],
+                "د": ["دجاجة", "ديك", "دب"],
+                "ذ": ["ذئب", "ذبابة"],
+                "ز": ["زرافة"],
+                "س": ["سمكة", "سلحفاة"],
                 "ف": ["فيل", "فأر", "فهد"],
-                "ج": ["جمل", "جرذ"],
-                "ق": ["قرد", "قط"],
-                "ح": ["حصان", "حمار", "حوت"],
-                "emoji": "🐾"
+                "ق": ["قط", "قرد"],
+                "ك": ["كلب"],
+                "ن": ["نمر", "نسر", "نحلة"],
+                "ه": ["هدهد"]
             },
             "نبات": {
-                "ن": ["نخلة", "نعناع", "نرجس"],
-                "و": ["وردة", "ورد"],
-                "ز": ["زيتون", "زهرة", "زنبق"],
-                "ت": ["تفاح", "تمر", "توت"],
-                "م": ["موز", "مانجو", "مشمش"],
-                "ب": ["برتقال", "بطيخ", "بصل"],
-                "emoji": "🌱"
+                "ت": ["تفاح", "توت", "تين"],
+                "ر": ["رمان", "ريحان"],
+                "ز": ["زيتون", "زعتر"],
+                "ل": ["ليمون"],
+                "م": ["موز", "مانجو"],
+                "ن": ["نخل", "نعناع"],
+                "و": ["ورد", "ورق"]
             },
             "جماد": {
-                "ك": ["كرسي", "كتاب", "كوب"],
-                "ط": ["طاولة", "طبق"],
-                "ق": ["قلم", "قارورة"],
                 "ب": ["باب", "بيت"],
-                "س": ["سيارة", "سرير", "ساعة"],
-                "ح": ["حاسوب", "حقيبة"],
-                "emoji": "📦"
+                "ح": ["حجر"],
+                "س": ["سرير", "سيارة"],
+                "ك": ["كتاب", "كرسي"],
+                "م": ["مفتاح", "مكتب"],
+                "ن": ["نافذة"]
             },
-            "بلد": {
-                "م": ["مصر", "المغرب", "ماليزيا"],
-                "س": ["سوريا", "السودان", "السعودية"],
-                "ع": ["العراق", "عمان"],
-                "ل": ["لبنان", "ليبيا"],
-                "ا": ["الأردن", "الإمارات"],
+            "بلاد": {
+                "أ": ["الأردن", "الإمارات"],
+                "ب": ["البحرين"],
                 "ت": ["تونس", "تركيا"],
-                "emoji": "🌍"
+                "ج": ["الجزائر"],
+                "س": ["السعودية", "سوريا", "السودان"],
+                "ع": ["عمان"],
+                "ف": ["فلسطين"],
+                "ق": ["قطر"],
+                "ك": ["الكويت"],
+                "ل": ["لبنان", "ليبيا"],
+                "م": ["مصر", "المغرب"],
+                "ي": ["اليمن"]
             }
         }
-
-        self.available_letters = [chr(i) for i in range(ord('ا'), ord('ي')+1)]
-
-    def normalize_text(self, text):
-        text = text.strip().lower()
-        text = re.sub(r'^ال', '', text)
-        text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-        text = text.replace('ة', 'ه')
-        text = text.replace('ى', 'ي')
-        text = re.sub(r'[\u064B-\u065F]', '', text)
-        return text
-
+    
     def start_game(self):
-        self.current_category = random.choice(list(self.categories.keys()))
-        category_data = self.categories[self.current_category]
-        available_in_category = [l for l in self.available_letters if l in category_data]
-        self.current_letter = random.choice(available_in_category)
-        return TextSendMessage(
-            text=f"{category_data['emoji']} اذكر: {self.current_category}\n🔤 يبدأ بحرف: {self.current_letter}\n💡 مثال صحيح فقط"
-        )
-
-    def check_with_ai(self, answer):
-        """التحقق من الإجابة باستخدام AI"""
-        if not self.model:
-            return False
-        try:
-            prompt = f"هل '{answer}' من فئة {self.current_category} ويبدأ بحرف {self.current_letter}؟ أجب بنعم أو لا فقط."
-            response = self.model.generate_content(prompt)
-            ai_result = response.text.strip().lower()
-            return 'نعم' in ai_result or 'yes' in ai_result
-        except Exception as e:
-            print(f"AI check error: {e}")
-            if self.switch_key:
-                self.switch_key()
-            return False
-
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_category or not self.current_letter:
+        """بدء اللعبة"""
+        self.current_question = 0
+        return self.get_question()
+    
+    def get_question(self):
+        """الحصول على السؤال الحالي"""
+        # اختيار حرف وفئة
+        self.current_letter = self.letters[self.current_question % len(self.letters)]
+        self.current_category = random.choice(self.categories)
+        
+        message = f"إنسان حيوان نبات ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += f"الحرف: {self.current_letter}\n"
+        message += f"الفئة: {self.current_category}\n\n"
+        message += f"اكتب {self.current_category} يبدأ بحرف {self.current_letter}\n\n"
+        message += "• جاوب - لعرض إجابة مقترحة"
+        
+        return TextSendMessage(text=message)
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        """فحص الإجابة"""
+        if not self.game_active:
             return None
-
-        user_answer_normalized = self.normalize_text(answer)
-        category_data = self.categories[self.current_category]
-        valid_answers = category_data.get(self.current_letter, [])
-        valid_answers_normalized = [self.normalize_text(ans) for ans in valid_answers]
-
-        # التحقق أولاً بالقائمة المحلية
-        is_correct = user_answer_normalized in valid_answers_normalized
-
-        # التحقق بالذكاء الاصطناعي إذا مفعل ولم يتم التعرف على الإجابة
-        if not is_correct and self.use_ai:
-            is_correct = self.check_with_ai(answer)
-
-        if is_correct:
-            points = 10
-            msg = f"✅ صحيح يا {display_name}!\n{answer} من فئة {self.current_category} ويبدأ بـ {self.current_letter}\n⭐ +{points} نقطة"
-
-            # إنشاء سؤال جديد
-            self.current_category = random.choice(list(self.categories.keys()))
-            category_data = self.categories[self.current_category]
-            available_in_category = [l for l in self.available_letters if l in category_data]
-            self.current_letter = random.choice(available_in_category)
-            msg += f"\n\n{category_data['emoji']} التالي: اذكر {self.current_category}\n🔤 يبدأ بحرف: {self.current_letter}"
-
+        
+        # التحقق من أن المستخدم لم يجب بعد
+        if user_id in self.answered_users:
+            return None
+        
+        # أمر جاوب
+        if user_answer == 'جاوب':
+            # اختيار إجابة عشوائية من القاعدة
+            suggested = None
+            if self.current_category in self.answers_db:
+                if self.current_letter in self.answers_db[self.current_category]:
+                    answers_list = self.answers_db[self.current_category][self.current_letter]
+                    if answers_list:
+                        suggested = random.choice(answers_list)
+            
+            if suggested:
+                reveal = f"إجابة مقترحة: {suggested}"
+            else:
+                reveal = f"إجابة مقترحة: أي كلمة تبدأ بحرف {self.current_letter}"
+            
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            
+            message = f"{reveal}\n\n" + next_q.text if hasattr(next_q, 'text') else reveal
             return {
-                'message': msg,
-                'points': points,
-                'won': True,
-                'game_over': False,
-                'response': TextSendMessage(text=msg)
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': 0
             }
-        else:
-            msg = f"❌ إجابة خاطئة!\nأمثلة صحيحة: {', '.join(valid_answers[:3])}"
+        
+        # تطبيع الإجابة
+        normalized_answer = self.normalize_text(user_answer)
+        normalized_letter = self.normalize_text(self.current_letter)
+        
+        # التحقق من أن الإجابة تبدأ بالحرف الصحيح
+        if not normalized_answer or normalized_answer[0] != normalized_letter:
+            return None
+        
+        # التحقق من قاعدة البيانات (إن وُجدت)
+        is_valid = True
+        if self.current_category in self.answers_db:
+            if self.current_letter in self.answers_db[self.current_category]:
+                valid_answers = [self.normalize_text(a) for a in self.answers_db[self.current_category][self.current_letter]]
+                is_valid = normalized_answer in valid_answers
+        
+        # قبول أي إجابة معقولة تبدأ بالحرف الصحيح
+        if len(normalized_answer) >= 2:
+            points = self.add_score(user_id, display_name, 10)
+            
+            # الانتقال للسؤال التالي
+            next_q = self.next_question()
+            
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                next_q['points'] = points
+                return next_q
+            
+            message = f"إجابة مقبولة يا {display_name}\n+{points} نقطة\n\n"
+            if hasattr(next_q, 'text'):
+                message += next_q.text
+            
             return {
-                'message': msg,
-                'points': 0,
-                'game_over': False,
-                'response': TextSendMessage(text=msg)
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': points
             }
+        
+        return None
