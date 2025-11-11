@@ -1,10 +1,9 @@
 Flask
+Werkzeug
 line-bot-sdk
-python-dotenv
-google-generativeai
 gunicorn
-APScheduler
-redis
-pillow
-pandas
-matplotlib
+requests
+google-generativeai
+python-dateutil
+python-dotenv
+gevent
