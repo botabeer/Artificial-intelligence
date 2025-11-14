@@ -1,218 +1,251 @@
+"""
+لعبة تخمين المغني من كلمات الأغنية
+"""
 from linebot.models import TextSendMessage
+from .base_game import BaseGame
 import random
-import re
 
-def normalize_text(text):
-    if not text:
-        return ""
-    text = text.strip().lower()
-    text = text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-    text = text.replace('ؤ', 'و').replace('ئ', 'ي').replace('ء', '')
-    text = text.replace('ة', 'ه').replace('ى', 'ي')
-    text = re.sub(r'[\u064B-\u065F]', '', text)
-    text = re.sub(r'\s+', '', text)
-    return text
 
-class SongGame:
-    def __init__(self, line_bot_api, use_ai=False, ask_ai=None):
-        self.line_bot_api = line_bot_api
-        self.use_ai = use_ai
-        self.ask_ai = ask_ai
+class SongGame(BaseGame):
+    """لعبة تخمين المغني"""
+    
+    def __init__(self, line_bot_api):
+        super().__init__(line_bot_api, questions_count=10)
         
-        #  ----------------------------
-        #  🎶 قائمة الأغاني الجديدة فقط
-        #  ----------------------------
-        self.all_songs = [
-            {"lyrics": "أنا بلياك إذا أرمش إلك تنزل ألف دمعة", "singer": "ماجد المهندس"},
-            {"lyrics": "يا بعدهم كلهم .. يا سراجي بينهم", "singer": "عبدالمجيد عبدالله"},
-            {"lyrics": "أنا لحبيبي وحبيبي إلي", "singer": "فيروز"},
-            {"lyrics": "قولي أحبك كي تزيد وسامتي", "singer": "كاظم الساهر"},
-            {"lyrics": "كيف أبيّن لك شعوري دون ما أحكي", "singer": "عايض"},
-            {"lyrics": "أريد الله يسامحني لان أذيت نفسي", "singer": "رحمة رياض"},
-            {"lyrics": "جنّنت قلبي بحبٍ يلوي ذراعي", "singer": "ماجد المهندس"},
-            {"lyrics": "واسِع خيالك إكتبه آنا بكذبك مُعجبه", "singer": "شمة حمدان"},
-            {"lyrics": "خذني من ليلي لليلك", "singer": "عبادي الجوهر"},
-            {"lyrics": "أنا عندي قلب واحد", "singer": "حسين الجسمي"},
-            {"lyrics": "احس اني لقيتك بس عشان تضيع مني", "singer": "عبدالمجيد عبدالله"},
-            {"lyrics": "قال الوداع و مقصده يجرح القلب", "singer": "راشد الماجد"},
-            {"lyrics": "يا بنات يا بنات", "singer": "نانسي عجرم"},
-            {"lyrics": "احبك موت كلمة مالها تفسير", "singer": "ماجد المهندس"},
-            {"lyrics": "خلنا مني طمني عليك", "singer": "نوال الكويتية"},
-            {"lyrics": "رحت عني ما قويت جيت لك لاتردني", "singer": "عبدالمجيد عبدالله"},
-            {"lyrics": "انسى هالعالم ولو هم يزعلون", "singer": "عباس ابراهيم"},
-            {"lyrics": "مشاعر تشاور تودع تسافر", "singer": "شيرين"},
-            {"lyrics": "جلست والخوف بعينيها تتأمل فنجاني", "singer": "عبد الحليم حافظ"},
-            {"lyrics": "اسخر لك غلا وتشوفني مقصر", "singer": "عايض"},
-            {"lyrics": "أنا استاهل وداع افضل وداع", "singer": "نوال الكويتية"},
-            {"lyrics": "ظلمتني والله قويٍ يجازيك", "singer": "طلال مداح"},
-            {"lyrics": "منوتي ليتك معي", "singer": "محمد عبده"},
-            {"lyrics": "انتى ندمتى", "singer": "تامر عاشور"},
-            {"lyrics": "احبك لو تكون حاضر .. احبك لو تكون هاجر", "singer": "عبادي الجوهر"},
-            {"lyrics": "أنا أكثر شخص بالدنيا يحبك .. وأنتي ماتدرين", "singer": "راشد الماجد"},
-            {"lyrics": "يردون .. قلت لازم يردون وين مني يروحون", "singer": "وليد الشامي"},
-            {"lyrics": "نكتشف مر الحقيقة بعد ما يفوت الأوان", "singer": "أصاله نصري"},
-            {"lyrics": "إسمحيلي يالغرام العف", "singer": "محمد عبده"},
-            {"lyrics": "تدري كثر ماني من البعد مخنوق", "singer": "راشد الماجد"},
-            {"lyrics": "احبه بس مو معناه اسمحله بيه يجرح", "singer": "أصيل هميم"},
-            {"lyrics": "ياما حاولت الفراق وما قويت", "singer": "عبدالمجيد عبدالله"},
-            {"lyrics": "بيان صادر من معاناة المحبة", "singer": "أميمة طالب"},
-            {"lyrics": "قلبي يسألني عنك دخلك طمني وينك", "singer": "وائل كفوري"},
-            {"lyrics": "بردان أنا تكفى أبي احترق بدفا", "singer": "محمد عبده"},
-            {"lyrics": "عايش لك .. ما عيش من دونك", "singer": "عايض"},
-            {"lyrics": "انا مش بتاعت الكلام ده", "singer": "شيرين"},
-            {"lyrics": "يراودني شعور .. اني أحبك اكثر مْن اول", "singer": "راشد الماجد"},
-            {"lyrics": "تملي معاك ولو حتى بعيد عني", "singer": "عمرو دياب"},
-            {"lyrics": "ياليت العمر لو كان مليون مره", "singer": "راشد الماجد"},
-            {"lyrics": "يا هي توجع كذبة اخباري تمام", "singer": "أميمة طالب"},
-            {"lyrics": "أحبك ليه أنا مدري", "singer": "عبدالمجيد عبدالله"},
-            {"lyrics": "يا مغرور جرحني غرورك", "singer": "أصالة"},
-            {"lyrics": "سألوني الناس عنك يا حبيبي", "singer": "فيروز"},
-            {"lyrics": "أنا ما عيش من دونك", "singer": "ماجد المهندس"},
-            {"lyrics": "أمر الله أقوى أحبك والعقل واعي", "singer": "ماجد المهندس"}
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # ❗ قائمة الأغاني الجديدة فقط
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self.songs = [
+            {
+                "artist": "أم كلثوم",
+                "title": "أيام الماضي",
+                "lyrics": "رجعت لي أيام الماضي معاك",
+                "nationality": "مصرية"
+            },
+            {
+                "artist": "عبد الحليم حافظ",
+                "title": "الخوف بعينيها",
+                "lyrics": "جلست والخوف بعينيها تتأمل فنجاني",
+                "nationality": "مصري"
+            },
+            {
+                "artist": "عمرو دياب",
+                "title": "تملي معاك",
+                "lyrics": "تملي معاك ولو حتى بعيد عني",
+                "nationality": "مصري"
+            },
+            {
+                "artist": "نانسي عجرم",
+                "title": "يا بنات",
+                "lyrics": "يا بنات يا بنات",
+                "nationality": "لبنانية"
+            },
+            {
+                "artist": "كاظم الساهر",
+                "title": "قولي أحبك",
+                "lyrics": "قولي أحبك كي تزيد وسامتي",
+                "nationality": "عراقي"
+            },
+            {
+                "artist": "فيروز",
+                "title": "أنا لحبيبي",
+                "lyrics": "أنا لحبيبي وحبيبي إلي",
+                "nationality": "لبنانية"
+            },
+            {
+                "artist": "تامر حسني",
+                "title": "كل الحياة",
+                "lyrics": "حبيبي يا كل الحياة اوعدني تبقى معايا",
+                "nationality": "مصري"
+            },
+            {
+                "artist": "وائل كفوري",
+                "title": "قلبي بيسألني",
+                "lyrics": "قلبي بيسألني عنك دخلك طمني وينك",
+                "nationality": "لبناني"
+            },
+            {
+                "artist": "عايض",
+                "title": "كيف أبين لك",
+                "lyrics": "كيف أبيّن لك شعوري دون ما أحكي\nخابرك لمّاح لكن مالمحته\nلاتغرّك كثرة مزوحي وضحكي\nوالله إن قلبي لغيرك ما فتحته",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "عايض",
+                "title": "اسخر لك غلا",
+                "lyrics": "اسخر لك غلا وتشوفني مقصر\nمعاك الحق ..\nوش الي يملي عيونك\nأنا ما عيش من دونك\nأحد ربي يجيبه لك حبيب\nويقدر يخونك",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "عبدالمجيد عبدالله",
+                "title": "رحت عني",
+                "lyrics": "رحت عني ما قويت جيت لك لاتردني",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "عبادي الجوهر",
+                "title": "خذني من ليلي",
+                "lyrics": "خذني من ليلي لليلك",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "راشد الماجد",
+                "title": "مخنوق",
+                "lyrics": "تدري كثر ماني من البعد مخنوق",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "عباس ابراهيم",
+                "title": "انسى هالعالم",
+                "lyrics": "انسى هالعالم ولو هم يزعلون",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "حسين الجسمي",
+                "title": "أنا عندي قلب واحد",
+                "lyrics": "أنا عندي قلب واحد",
+                "nationality": "إماراتي"
+            },
+            {
+                "artist": "محمد عبده",
+                "title": "منوتي ليتك معي",
+                "lyrics": "منوتي ليتك معي",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "نوال الكويتية",
+                "title": "خلنا مني",
+                "lyrics": "خلنا مني طمني عليك",
+                "nationality": "كويتية"
+            },
+            {
+                "artist": "عبدالمجيد عبدالله",
+                "title": "أحبك ليه",
+                "lyrics": "أحبك ليه أنا مدري",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "ماجد المهندس",
+                "title": "أمر الله أقوى",
+                "lyrics": "أمر الله أقوى أحبك والعقل واعي",
+                "nationality": "عراقي"
+            },
+            {
+                "artist": "راشد الماجد",
+                "title": "الحب يتعب",
+                "lyrics": "الحب يتعب من يدله والله في حبه بلاني",
+                "nationality": "سعودي"
+            },
+            {
+                "artist": "وليد الشامي",
+                "title": "شغل عقلي",
+                "lyrics": "محد غيرك شغل عقلي شغل بالي",
+                "nationality": "عراقي"
+            },
+            {
+                "artist": "أصاله نصري",
+                "title": "مر الحقيقة",
+                "lyrics": "نكتشف مر الحقيقة بعد ما يفوت الأوان",
+                "nationality": "سورية"
+            },
+            {
+                "artist": "أميمة طالب",
+                "title": "اخباري تمام",
+                "lyrics": "يا هي توجع كذبة اخباري تمام",
+                "nationality": "سعودية"
+            },
+            {
+                "artist": "عبدالمجيد عبدالله",
+                "title": "لقيتك عشان تضيع",
+                "lyrics": "احس اني لقيتك بس عشان تضيع مني",
+                "nationality": "سعودي"
+            },
         ]
         
-        self.questions = []
-        self.current_song = None
-        self.hints_used = 0
-        self.question_number = 0
-        self.total_questions = 5
-        self.player_scores = {}
+        random.shuffle(self.songs)
     
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # نفس دوال اللعبة بدون تغيير
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     def start_game(self):
-        if self.use_ai and self.ask_ai:
-            self._generate_ai_songs()
-        
-        self.questions = random.sample(self.all_songs, min(self.total_questions, len(self.all_songs)))
-        self.question_number = 0
-        self.player_scores = {}
-        return self._next_question()
+        self.current_question = 0
+        return self.get_question()
     
-    def _generate_ai_songs(self):
-        try:
-            prompt = """اعطني 10 مقاطع من أغاني عربية مشهورة مع اسم المغني.
-الصيغة:
-مقطع الأغنية | اسم المغني
-"""
-            response = self.ask_ai(prompt)
-            if response:
-                lines = response.strip().split('\n')
-                new_songs = []
-                for line in lines:
-                    if '|' in line:
-                        parts = line.split('|')
-                        if len(parts) == 2:
-                            new_songs.append({
-                                'lyrics': parts[0].strip(),
-                                'singer': parts[1].strip()
-                            })
-                if new_songs:
-                    self.all_songs = new_songs
-        except:
-            pass
-
-    def _next_question(self):
-        self.question_number += 1
-        self.current_song = self.questions[self.question_number - 1]
-        self.hints_used = 0
-        return TextSendMessage(
-            text=f"▪️ لعبة الأغاني\n\nسؤال {self.question_number} من {self.total_questions}\n\n{self.current_song['lyrics']}\n\nمن المغني؟\n\n▫️ لمح - للحصول على تلميح\n▫️ جاوب - لعرض الإجابة"
-        )
-
-    def next_question(self):
-        if self.question_number < self.total_questions:
-            return self._next_question()
-        return None
-
-    def check_answer(self, answer, user_id, display_name):
-        if not self.current_song:
+    def get_question(self):
+        song = self.songs[self.current_question % len(self.songs)]
+        self.current_answer = song["artist"]
+        
+        message = f"من كلمات الأغنية:\n\n"
+        message += f"« {song['lyrics']} »\n\n"
+        message += f"━━━━━━━━━━━━━━━\n"
+        message += f"خمن اسم المغني ({self.current_question + 1}/{self.questions_count})\n\n"
+        message += "اكتب اسم المغني أو:\n"
+        message += "• لمح - لعرض الجنسية\n"
+        message += "• جاوب - لعرض الإجابة"
+        
+        return TextSendMessage(text=message)
+    
+    def get_hint(self):
+        song = self.songs[self.current_question % len(self.songs)]
+        gender = "مغني" if song["nationality"] not in ["لبنانية", "سورية", "كويتية", "سعودية"] else "مغنية"
+        return f"💡 تلميح: {gender} {song['nationality']}"
+    
+    def check_answer(self, user_answer, user_id, display_name):
+        if not self.game_active:
             return None
         
-        answer_lower = answer.strip().lower()
+        if user_id in self.answered_users:
+            return None
         
-        if answer_lower in ['لمح', 'تلميح', 'hint']:
-            if self.hints_used == 0:
-                singer_name = self.current_song['singer']
-                first_letter = singer_name[0]
-                name_length = len(singer_name.replace(' ', ''))
-                words = singer_name.split()
-                word_info = f"{len(words)} كلمة" if len(words) > 1 else "كلمة واحدة"
-                
-                hint = f"▫️ يبدأ بحرف: {first_letter}\n▫️ عدد الحروف: {name_length}\n▫️ {word_info}"
-                self.hints_used += 1
-                return {
-                    'response': TextSendMessage(text=hint),
-                    'points': 0,
-                    'correct': False,
-                    'won': False,
-                    'game_over': False
-                }
-            else:
-                return {
-                    'response': TextSendMessage(text="استخدمت التلميح"),
-                    'points": 0,
-                    'correct": False,
-                    'won": False,
-                    'game_over": False
-                }
+        if user_answer == 'لمح':
+            hint = self.get_hint()
+            return {
+                'message': hint,
+                'response': TextSendMessage(text=hint),
+                'points': 0
+            }
         
-        if answer_lower in ['جاوب', 'الجواب', 'answer']:
-            response_text = f"▪️ الإجابة: {self.current_song['singer']}"
+        if user_answer == 'جاوب':
+            song = self.songs[self.current_question % len(self.songs)]
+            reveal = f"المغني: {song['artist']}\nالأغنية: {song['title']}"
+            next_q = self.next_question()
             
-            if self.question_number < self.total_questions:
-                return {
-                    'response": TextSendMessage(text=response_text),
-                    'points": 0,
-                    'correct": False,
-                    'won": False,
-                    'game_over": False,
-                    'next_question": True
-                }
-            else:
-                return self._end_game()
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                return next_q
+            
+            message = f"{reveal}\n\n" + (next_q.text if hasattr(next_q, 'text') else "")
+            return {
+                'message': message,
+                'response': TextSendMessage(text=message),
+                'points': 0
+            }
         
-        if normalize_text(answer) == normalize_text(self.current_song['singer']):
-            points = 20 - (self.hints_used * 5)
+        normalized_answer = self.normalize_text(user_answer)
+        normalized_correct = self.normalize_text(self.current_answer)
+        
+        if normalized_correct in normalized_answer or normalized_answer in normalized_correct:
+            points = self.add_score(user_id, display_name, 10)
+            song = self.songs[self.current_question % len(self.songs)]
+            next_q = self.next_question()
             
-            if user_id not in self.player_scores:
-                self.player_scores[user_id] = {'name': display_name, 'score': 0}
-            self.player_scores[user_id]['score'] += points
+            if isinstance(next_q, dict) and next_q.get('game_over'):
+                next_q['points'] = points
+                return next_q
             
-            if self.question_number < self.total_questions:
-                response_text = f"▪️ صحيح {display_name}\n\nالمغني: {self.current_song['singer']}\n\n▫️ النقاط: {points}"
-                return {
-                    'response": TextSendMessage(text=response_text),
-                    'points": points,
-                    'correct": True,
-                    'won": True,
-                    'game_over": False,
-                    'next_question": True
-                }
-            else:
-                return self._end_game()
+            message = (
+                f"إجابة صحيحة يا {display_name}\n\n"
+                f"المغني: {song['artist']}\n"
+                f"الأغنية: {song['title']}\n"
+                f"+{points} نقطة\n\n"
+            )
+            if hasattr(next_q, 'text'):
+                message += next_q.text
+            
+            return {
+                'message': message,
+                'response": TextSendMessage(text=message),
+                'points": points
+            }
         
         return None
-
-    def _end_game(self):
-        if self.player_scores:
-            sorted_players = sorted(self.player_scores.items(), key=lambda x: x[1]['score'], reverse=True)
-            winner = sorted_players[0][1]
-            all_scores = [(data['name'], data['score']) for uid, data in sorted_players]
-            
-            from app import get_winner_card
-            winner_card = get_winner_card(winner['name'], winner['score'], all_scores)
-            
-            return {
-                'points": 0,
-                'correct": False,
-                'won": True,
-                'game_over": True,
-                'winner_card": winner_card
-            }
-        else:
-            return {
-                'response": TextSendMessage(text="انتهت اللعبة"),
-                'points": 0,
-                'correct": False,
-                'won": False,
-                'game_over": True
-            }
